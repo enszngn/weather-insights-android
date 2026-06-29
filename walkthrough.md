@@ -24,3 +24,20 @@ This file contains a historical log of all major changes made to the project.
 - Added Internet permission, registered `WeatherApplication` Hilt entry point, and declared launcher `MainActivity` in `AndroidManifest.xml`.
 - Created `WeatherApplication` annotated with `@HiltAndroidApp`.
 - Created `MainActivity` annotated with `@AndroidEntryPoint` with initial Compose UI layout.
+
+## Phase 1.3 & Phase 2: Network Client & Data Layer
+- Created structured and raw forecast serialization models in `data/model` package ([WeatherModels.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/WeatherModels.kt), [OpenMeteoModels.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/OpenMeteoModels.kt), and [WeatherPostPayload.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/WeatherPostPayload.kt)).
+- Defined Retrofit API interfaces in `data/network` package ([WeatherApiService.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/network/WeatherApiService.kt) and [OpenMeteoApiService.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/network/OpenMeteoApiService.kt)).
+- Configured Dagger Hilt dependency injection for JSON parser, OkHttpClient, and two distinct Retrofit clients inside [NetworkModule.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/di/NetworkModule.kt).
+- Implemented worker-first caching and fallback logic inside [WeatherRepository.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/repository/WeatherRepository.kt).
+- Created a self-contained unit test suite in [WeatherRepositoryTest.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/example/weather_insights/WeatherRepositoryTest.kt) utilizing API Fakes, verifying cache hits, misses, uploads, and fallback errors.
+
+## Phase 3: Logic & State Management
+- Configured Google Play Services Location dependency in version catalogs and `build.gradle.kts`.
+- Requested coarse and fine location permissions in `AndroidManifest.xml`.
+- Created [LocationTracker.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/location/LocationTracker.kt) interface and coordinates model.
+- Created [DefaultLocationTracker.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/location/DefaultLocationTracker.kt) using FusedLocationProviderClient, wrapping Google tasks with coroutines cancellable suspend block.
+- Configured [LocationModule.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/di/LocationModule.kt) for Hilt to bind `LocationTracker` and provide `FusedLocationProviderClient`.
+- Implemented [WeatherUiState.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherUiState.kt) sealed interface supporting state representing Loading, Success, and Error.
+- Implemented [WeatherViewModel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherViewModel.kt) supporting location querying and mapping results. Added location-permission-denied detection to transition to error states with permission warnings.
+- Added `kotlinx-coroutines-test` dependency and implemented unit tests inside [WeatherViewModelTest.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/example/weather_insights/WeatherViewModelTest.kt) covering location permission errors and success/failure flows.

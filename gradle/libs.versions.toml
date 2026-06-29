@@ -6,6 +6,7 @@ hilt = "2.60"
 retrofit = "2.11.0"
 kotlinxSerialization = "1.7.3"
 okhttp = "4.12.0"
+playServicesLocation = "21.3.0"
 composeBom = "2024.10.00"
 androidxActivityCompose = "1.9.3"
 androidxLifecycle = "2.8.7"
@@ -25,6 +26,12 @@ androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "j
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+
+# Play Services Location
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+
+# Coroutines Test
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version = "1.8.1" }
 
 # Retrofit & Serialization
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }

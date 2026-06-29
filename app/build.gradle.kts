@@ -68,12 +68,16 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp.logging)
 
+    // Play Services Location
+    implementation(libs.play.services.location)
+
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
     // Test dependencies
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(platform(libs.compose.bom))
