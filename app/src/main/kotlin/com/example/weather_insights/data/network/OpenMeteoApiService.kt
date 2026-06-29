@@ -12,7 +12,7 @@ interface OpenMeteoApiService {
         @Query("longitude") longitude: Double,
         @Query("current") current: String = "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code",
         @Query("hourly") hourly: String = "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code",
-        @Query("daily") daily: String = "uv_index_max",
+        @Query("daily") daily: String = "uv_index_max,sunrise,sunset",
         @Query("timezone") timezone: String = "auto",
         @Query("forecast_days") forecastDays: Int = 8
     ): Response<OpenMeteoResponse>

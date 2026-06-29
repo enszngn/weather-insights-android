@@ -41,3 +41,32 @@ This file contains a historical log of all major changes made to the project.
 - Implemented [WeatherUiState.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherUiState.kt) sealed interface supporting state representing Loading, Success, and Error.
 - Implemented [WeatherViewModel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherViewModel.kt) supporting location querying and mapping results. Added location-permission-denied detection to transition to error states with permission warnings.
 - Added `kotlinx-coroutines-test` dependency and implemented unit tests inside [WeatherViewModelTest.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/example/weather_insights/WeatherViewModelTest.kt) covering location permission errors and success/failure flows.
+
+## Phase 1.2 & Phase 4: Glassmorphic UI Setup
+- Created custom theme colors in [Color.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/theme/Color.kt) defining translucent backplates and high-contrast texts.
+- Created custom font styles in [Type.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/theme/Type.kt) and initialized [Theme.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/theme/Theme.kt).
+- Coded weather mapper utils in [WeatherMapper.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherMapper.kt) translating weather codes to emojis, descriptions, and color gradient backplates.
+- Coded custom glassmorphism card [GlassyPanel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/GlassyPanel.kt).
+- Created [HomeScreen.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/screens/HomeScreen.kt) with vertical weights (Top 20% / Center 60% / Bottom 20%):
+  - Displays dynamic ambient gradient backgrounds matching current weather code.
+  - Generates glassy loading and permission request prompts.
+  - Lists next 6 hours timeline showing times, weather code emojis, temperatures, and humidity percentages.
+- Updated [MainActivity.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/MainActivity.kt) to bind to `WeatherViewModel`, request fine/coarse location permissions dynamically at runtime, and render `HomeScreen`.
+
+## Sunset Integration & UI Redesign
+- Added optional `sunrise` and `sunset` properties to serialization models in [WeatherModels.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/WeatherModels.kt) and [OpenMeteoModels.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/OpenMeteoModels.kt).
+- Configured default parameter to fetch `uv_index_max,sunrise,sunset` in [OpenMeteoApiService.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/network/OpenMeteoApiService.kt).
+- Modified `mapCodeToEmoji` in [WeatherMapper.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherMapper.kt) supporting an `isNight` parameter returning night representations (`🌙` for clear sky, `☁️` for clouds).
+- Completely overhauled [HomeScreen.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/screens/HomeScreen.kt) layout:
+  - Enlarged the city name display to `44.sp`.
+  - Implemented chronological current-hour filtering and chronological insertion of Sunset event rows (`TimelineEntry.Sunset`).
+  - Restructured hourly entries: removed vertical degree divider (`|`), relocated humidity percentage underneath the emoji, and added drop prefix emoji `💧`.
+  - Updated the bottom dashboard: deleted the humidity panel, and centered the Wind Speed layout card with an enlarged windy emoji `💨`.
+  - Changed the app background to scale mathematically based on the current time of day: interpolates from solid light blue (`#009AFF`) at mid-day to dark midnight blue (`#001533`) at mid-night, using sunrise and sunset coordinates.
+  - Removed the "Hourly Timeline" text header inside the main container.
+  - Set the text color of the timeline hours, humidity values, and wind speed labels to high-contrast white.
+  - Expanded the timeline slider size to display 24 hours of weather forecasts.
+  - Refactored `LocationTracker` to query live GPS updates via `getCurrentLocation` and `PRIORITY_HIGH_ACCURACY` to bypass stale location cache.
+  - Removed the transparent GlassyPanel window from around the wind speed indicator in the bottom panel.
+  - Implemented client-side reverse-geocoding using Android's native `Geocoder` inside `LocationTracker` to retrieve the actual city name.
+  - Updated `WeatherViewModel` to override the location name display with the geocoded city name, and completely reject the backend's `"Çankaya"` / `"Ankara"` placeholder defaults.

@@ -33,7 +33,18 @@ class WeatherViewModel @Inject constructor(
                     .collect { result ->
                         result.fold(
                             onSuccess = { data ->
-                                _uiState.value = WeatherUiState.Success(data)
+                                val geocodedName = location.cityName
+                                val finalLocationName = if (!geocodedName.isNullOrEmpty()) {
+                                    geocodedName
+                                } else {
+                                    if (data.locationName == "Çankaya" || data.locationName == "Ankara") {
+                                        "Current Location"
+                                    } else {
+                                        data.locationName
+                                    }
+                                }
+                                val overriddenData = data.copy(locationName = finalLocationName)
+                                _uiState.value = WeatherUiState.Success(overriddenData)
                             },
                             onFailure = { error ->
                                 _uiState.value = WeatherUiState.Error(

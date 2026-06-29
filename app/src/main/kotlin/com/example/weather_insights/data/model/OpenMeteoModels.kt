@@ -39,5 +39,7 @@ data class OpenMeteoHourly(
 @Serializable
 data class OpenMeteoDaily(
     val time: List<String>,
-    @SerialName("uv_index_max") val uvIndexMax: List<Double>
+    @SerialName("uv_index_max") val uvIndexMax: List<Double>,
+    val sunrise: List<String>? = null,
+    val sunset: List<String>? = null
 )

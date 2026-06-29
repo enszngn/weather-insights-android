@@ -32,21 +32,42 @@ class DefaultLocationTracker @Inject constructor(
             return null
         }
 
-        return suspendCancellableCoroutine { continuation ->
-            locationClient.lastLocation
-                .addOnSuccessListener { location ->
-                    if (location != null) {
-                        continuation.resume(LocationData(location.latitude, location.longitude))
-                    } else {
-                        continuation.resume(null)
-                    }
-                }
-                .addOnFailureListener {
-                    continuation.resume(null)
-                }
-                .addOnCanceledListener {
-                    continuation.resume(null)
-                }
+        val cts = com.google.android.gms.tasks.CancellationTokenSource()
+        val rawLocation: android.location.Location? = suspendCancellableCoroutine { continuation ->
+            continuation.invokeOnCancellation {
+                cts.cancel()
+            }
+            locationClient.getCurrentLocation(
+                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+                cts.token
+            )
+            .addOnSuccessListener { location ->
+                continuation.resume(location)
+            }
+            .addOnFailureListener {
+                continuation.resume(null)
+            }
+            .addOnCanceledListener {
+                continuation.resume(null)
+            }
         }
+
+        if (rawLocation == null) {
+            return null
+        }
+
+        val cityName = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
+                val addresses = geocoder.getFromLocation(rawLocation.latitude, rawLocation.longitude, 1)
+                addresses?.firstOrNull()?.locality 
+                    ?: addresses?.firstOrNull()?.adminArea 
+                    ?: addresses?.firstOrNull()?.countryName
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        return LocationData(rawLocation.latitude, rawLocation.longitude, cityName)
     }
 }

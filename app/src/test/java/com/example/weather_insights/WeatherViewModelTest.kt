@@ -110,7 +110,7 @@ class WeatherViewModelTest {
     fun testViewModelInit_LocationSuccess_TransitionsToSuccess() = runTest {
         val dummyData = WeatherData("Ankara", 39.93, 32.85, emptyList())
         val fakeLocationTracker = FakeLocationTracker().apply {
-            locationResult = LocationData(39.93, 32.85)
+            locationResult = LocationData(39.93, 32.85, "Ankara")
         }
         val fakeWeatherApi = FakeWeatherApiService().apply {
             getResponse = {

@@ -24,7 +24,9 @@ data class ForecastDay(
     val windSpeed: Double,
     val uvIndex: Double,
     val weatherCode: Int,
-    val hourly: List<HourlyForecast>
+    val hourly: List<HourlyForecast>,
+    val sunrise: String? = null,
+    val sunset: String? = null
 )
 
 @Serializable
