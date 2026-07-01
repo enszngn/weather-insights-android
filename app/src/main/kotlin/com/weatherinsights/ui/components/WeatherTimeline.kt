@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.rounded.Air
 import androidx.compose.material.icons.rounded.WbTwilight
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -53,7 +54,8 @@ internal fun WeatherContent(
     weatherData: WeatherData,
     onRefresh: () -> Unit,
     canRefresh: Boolean,
-    isRefreshing: Boolean
+    isRefreshing: Boolean,
+    onOpenSettings: () -> Unit
 ) {
     val currentDay = weatherData.forecast.firstOrNull()
     val currentTemp = currentDay?.temp ?: 0.0
@@ -120,6 +122,19 @@ internal fun WeatherContent(
                         modifier = Modifier
                             .size(24.dp)
                             .rotate(if (isRefreshing) rotation else 0f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+                IconButton(
+                    onClick = onOpenSettings,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Settings,
+                        contentDescription = "Settings",
+                        tint = TextPrimary,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }

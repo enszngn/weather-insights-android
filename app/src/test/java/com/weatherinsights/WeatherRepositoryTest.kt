@@ -19,16 +19,30 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import retrofit2.Response
 
+import com.weatherinsights.data.model.NotificationPreferences
+
 class WeatherRepositoryTest {
 
     class FakeWeatherLocalSource : WeatherLocalSource {
         var cachedWeather: WeatherData? = null
+        var notificationPrefs = NotificationPreferences()
+        private val notificationDates = mutableMapOf<String, String>()
+
         override suspend fun getCachedWeather(): WeatherData? = cachedWeather
         override suspend fun saveWeatherToCache(data: WeatherData) {
             cachedWeather = data
         }
         override suspend fun getRefreshState(): Pair<Int, Long>? = null
         override suspend fun saveRefreshState(count: Int, windowStart: Long) { /* no-op in tests */ }
+
+        override suspend fun getNotificationPreferences(): NotificationPreferences = notificationPrefs
+        override suspend fun saveNotificationPreferences(prefs: NotificationPreferences) {
+            notificationPrefs = prefs
+        }
+        override suspend fun getLastNotificationDate(key: String): String? = notificationDates[key]
+        override suspend fun saveLastNotificationDate(key: String, dateString: String) {
+            notificationDates[key] = dateString
+        }
     }
 
     private fun createDummyWeatherData() = WeatherData(

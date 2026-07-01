@@ -4,7 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.weatherinsights.data.datasource.WeatherLocalSource
 import com.weatherinsights.data.location.LocationTracker
+import com.weatherinsights.data.model.NotificationPreferences
+import com.weatherinsights.data.model.WeatherData
 import com.weatherinsights.data.repository.WeatherRepository
+import com.weatherinsights.ui.viewmodel.WeatherUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,16 +28,17 @@ class WeatherViewModel @Inject constructor(
     private val _canRefresh = MutableStateFlow(true)
     val canRefresh: StateFlow<Boolean> = _canRefresh.asStateFlow()
 
-    /** True while a user-triggered refresh is actively in-flight. */
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _notificationPreferences = MutableStateFlow(NotificationPreferences())
+    val notificationPreferences: StateFlow<NotificationPreferences> = _notificationPreferences.asStateFlow()
 
     companion object {
         const val MAX_REFRESHES = 3
         const val WINDOW_DURATION_MS = 15 * 60 * 1000L // 15 minutes
     }
 
-    /** In-memory window start timestamp. Loaded from DataStore on init. */
     private var refreshWindowStart: Long = 0L
     private var refreshCount: Int = 0
 
@@ -42,6 +46,16 @@ class WeatherViewModel @Inject constructor(
         viewModelScope.launch {
             restoreRefreshState()
             loadCachedWeatherAndFetch()
+        }
+        viewModelScope.launch {
+            _notificationPreferences.value = localSource.getNotificationPreferences()
+        }
+    }
+
+    fun updateNotificationPreferences(prefs: NotificationPreferences) {
+        viewModelScope.launch {
+            localSource.saveNotificationPreferences(prefs)
+            _notificationPreferences.value = prefs
         }
     }
 

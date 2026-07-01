@@ -25,6 +25,15 @@ This file tracks the real-time progress of tasks. AI Agents must update this fil
 - [x] UI: Color-tint weather timeline icons (yellow sun, grey clouds, blue moon, dark grey storm)
 - [x] Project: Rename package name to com.weatherinsights globally (move files and update references)
 - [x] Project: Change app display name in strings.xml to Weather Insights
+- [x] Feature: Add WorkManager dependency to version catalog and app build.gradle.kts
+- [x] Feature: Create NotificationPreferences data model
+- [x] Feature: Update WeatherLocalSource with DataStore preferences for notifications
+- [x] Feature: Implement WeatherNotificationWorker for checks and notifications
+- [x] Feature: Design and build SettingsScreen UI for notification configuration
+- [x] Feature: Integrate SettingsScreen navigation/toggle from HomeScreen
+- [x] Feature: Request POST_NOTIFICATIONS permission in MainActivity
+- [x] Feature: Write unit tests for notification preferences and worker logic
+- [x] Verification: Test notification scheduling and verify layout visual quality
 
 
 

@@ -6,6 +6,7 @@ import com.weatherinsights.data.model.OpenMeteoCurrent
 import com.weatherinsights.data.model.OpenMeteoDaily
 import com.weatherinsights.data.model.OpenMeteoHourly
 import com.weatherinsights.data.model.OpenMeteoResponse
+import com.weatherinsights.data.model.NotificationPreferences
 import com.weatherinsights.data.model.WeatherData
 import com.weatherinsights.data.model.WeatherPostPayload
 import com.weatherinsights.data.model.WeatherResponse
@@ -56,6 +57,8 @@ class WeatherViewModelTest {
         var cachedWeather: WeatherData? = null
         private var refreshCount: Int = 0
         private var refreshWindowStart: Long = 0L
+        var notificationPrefs = NotificationPreferences()
+        private val notificationDates = mutableMapOf<String, String>()
 
         override suspend fun getCachedWeather(): WeatherData? = cachedWeather
         override suspend fun saveWeatherToCache(data: WeatherData) {
@@ -68,6 +71,15 @@ class WeatherViewModelTest {
         override suspend fun saveRefreshState(count: Int, windowStart: Long) {
             refreshCount = count
             refreshWindowStart = windowStart
+        }
+
+        override suspend fun getNotificationPreferences(): NotificationPreferences = notificationPrefs
+        override suspend fun saveNotificationPreferences(prefs: NotificationPreferences) {
+            notificationPrefs = prefs
+        }
+        override suspend fun getLastNotificationDate(key: String): String? = notificationDates[key]
+        override suspend fun saveLastNotificationDate(key: String, dateString: String) {
+            notificationDates[key] = dateString
         }
     }
 
@@ -314,5 +326,33 @@ class WeatherViewModelTest {
         
         // Even though count was 3, the window expired, so it resets, and we can refresh
         assertTrue(viewModel.canRefresh.value)
+    }
+
+    @Test
+    fun testViewModel_NotificationPreferences_Flow() = runTest {
+        val fakeLocationTracker = FakeLocationTracker()
+        val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService(), FakeWeatherLocalSource())
+        val fakeLocalSource = FakeWeatherLocalSource()
+        
+        val initialPrefs = NotificationPreferences(
+            criticalAlertsEnabled = true,
+            morningReportEnabled = false,
+            morningReportTime = "09:00"
+        )
+        fakeLocalSource.saveNotificationPreferences(initialPrefs)
+        
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, fakeLocalSource)
+        testDispatcher.scheduler.advanceUntilIdle()
+        
+        // Expose preferences and assert loaded correctly
+        assertEquals(initialPrefs, viewModel.notificationPreferences.value)
+        
+        // Modify preferences and save
+        val updatedPrefs = initialPrefs.copy(morningReportEnabled = true, morningReportTime = "10:30")
+        viewModel.updateNotificationPreferences(updatedPrefs)
+        testDispatcher.scheduler.advanceUntilIdle()
+        
+        assertEquals(updatedPrefs, viewModel.notificationPreferences.value)
+        assertEquals(updatedPrefs, fakeLocalSource.getNotificationPreferences())
     }
 }

@@ -207,6 +207,43 @@ Change the user-facing launcher name on the Android home screen/app drawer to `W
 ### Implementation
 - **[`strings.xml`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/res/values/strings.xml)**: Changed `<string name="app_name">weather-insights</string>` to `<string name="app_name">Weather Insights</string>`.
 
+## Customizable Weather Notifications
+
+### Goal
+Implement push notifications with user-configurable times inside the app, categorizing warnings into critical alerts (severe weather/storm, imminent rain), routine summaries (morning report, evening report), and smart insights (weekend summary, temperature shock, health & allergen notifications).
+
+### Implementation
+- **Dependencies & Manifests**:
+  - Added WorkManager dependency to [`libs.versions.toml`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/gradle/libs.versions.toml) and [`build.gradle.kts`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/build.gradle.kts).
+  - Added `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />` in [`AndroidManifest.xml`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/AndroidManifest.xml).
+- **Data & Storage**:
+  - Created [`NotificationPreferences.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/data/model/NotificationPreferences.kt) containing config switches and time strings.
+  - Updated [`WeatherLocalSource.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/data/datasource/WeatherLocalSource.kt) to serialize/deserialize notification preferences in DataStore Preferences and track last notification date strings.
+- **Background Execution**:
+  - Created [`WeatherNotificationWorker.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/worker/WeatherNotificationWorker.kt) using WorkManager running hourly.
+  - Implemented rules for:
+    - *Critical Alerts*: Storm codes (95, 96, 99) and imminent rain checks bypassing quiet hours.
+    - *Sabah Raporu*: Triggers at morning hour (default 08:00) with clothing recommendations based on min/max temperatures.
+    - *Akşam Raporu*: Triggers at evening hour (default 20:00) with tomorrow's forecast summary.
+    - *Hafta Sonu Özeti*: Triggers on Friday afternoon (17:00–18:00) summarizing Saturday and Sunday forecasts.
+    - *Sıcaklık Şoku*: Compares tomorrow's max temp with today's max temp, alerting if difference >= 10°C.
+    - *Sağlık*: High UV index uyarısı and simulated high pollen/poor AQI indicators based on wind, humidity, and heat.
+  - Implemented Quiet Hours checks that silence non-critical reports during sleep hours.
+- **UI Integration**:
+  - Created [`SettingsScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/SettingsScreen.kt) to edit preferences and select custom times using Compose `TimePicker`.
+  - Added settings gear icon inside the [`WeatherTimeline.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/components/WeatherTimeline.kt) header.
+  - Updated [`HomeScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/HomeScreen.kt) to route/toggle displaying the new `SettingsScreen`.
+- **ViewModel & Lifecycle**:
+  - Updated [`WeatherViewModel.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/viewmodel/WeatherViewModel.kt) to expose and persist preferences state.
+  - Updated [`MainActivity.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/MainActivity.kt) to request notification permission at runtime and enqueue the periodic background work request.
+- **Testing**:
+  - Mocked notification methods in `FakeWeatherLocalSource` and added unit test coverage for the ViewModel preferences flow in [`WeatherViewModelTest.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/weatherinsights/WeatherViewModelTest.kt).
+  - All 12 unit tests pass successfully.
+- **English Localization**:
+  - Translated all UI labels, options, time selection dialogs, and notification channel/content messages in [`SettingsScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/SettingsScreen.kt) and [`WeatherNotificationWorker.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/worker/WeatherNotificationWorker.kt) from Turkish to English to comply with the project's language guidelines.
+
+
+
 
 
 
