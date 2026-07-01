@@ -17,6 +17,12 @@ import com.weatherinsights.ui.components.WeatherContent
 import com.weatherinsights.ui.util.getDynamicBackgroundColor
 import com.weatherinsights.ui.viewmodel.WeatherUiState
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+
 /**
  * Root screen composable. Responsible only for:
  * 1. Computing the ambient background color from the current UI state.
@@ -44,28 +50,52 @@ fun HomeScreen(
             .background(getDynamicBackgroundColor(uiState))
             .systemBarsPadding()
     ) {
-        if (isSettingsOpen) {
-            SettingsScreen(
-                preferences = notificationPreferences,
-                onPreferencesChanged = onPreferencesChanged,
-                onBack = { isSettingsOpen = false }
-            )
-        } else {
-            when (uiState) {
-                is WeatherUiState.Loading -> LoadingView()
-                is WeatherUiState.Success -> WeatherContent(
-                    weatherData = uiState.weatherData,
-                    onRefresh = onRefresh,
-                    canRefresh = canRefresh,
-                    isRefreshing = isRefreshing,
-                    onOpenSettings = { isSettingsOpen = true }
+        AnimatedContent(
+            targetState = isSettingsOpen,
+            transitionSpec = {
+                if (targetState) {
+                    slideInHorizontally(
+                        animationSpec = tween(300),
+                        initialOffsetX = { it }
+                    ) togetherWith slideOutHorizontally(
+                        animationSpec = tween(300),
+                        targetOffsetX = { -it }
+                    )
+                } else {
+                    slideInHorizontally(
+                        animationSpec = tween(300),
+                        initialOffsetX = { -it }
+                    ) togetherWith slideOutHorizontally(
+                        animationSpec = tween(300),
+                        targetOffsetX = { it }
+                    )
+                }
+            },
+            label = "settingsTransition"
+        ) { targetIsSettingsOpen ->
+            if (targetIsSettingsOpen) {
+                SettingsScreen(
+                    preferences = notificationPreferences,
+                    onPreferencesChanged = onPreferencesChanged,
+                    onBack = { isSettingsOpen = false }
                 )
-                is WeatherUiState.Error -> ErrorView(
-                    message = uiState.message,
-                    isPermissionRequired = uiState.isPermissionRequired,
-                    onRequestPermission = onRequestPermission,
-                    onRetry = onRetry
-                )
+            } else {
+                when (uiState) {
+                    is WeatherUiState.Loading -> LoadingView()
+                    is WeatherUiState.Success -> WeatherContent(
+                        weatherData = uiState.weatherData,
+                        onRefresh = onRefresh,
+                        canRefresh = canRefresh,
+                        isRefreshing = isRefreshing,
+                        onOpenSettings = { isSettingsOpen = true }
+                    )
+                    is WeatherUiState.Error -> ErrorView(
+                        message = uiState.message,
+                        isPermissionRequired = uiState.isPermissionRequired,
+                        onRequestPermission = onRequestPermission,
+                        onRetry = onRetry
+                    )
+                }
             }
         }
     }
