@@ -83,4 +83,7 @@ dependencies {
     androidTestImplementation(platform(libs.compose.bom))
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
+
+    // Persistence (DataStore)
+    implementation(libs.androidx.datastore.preferences)
 }

@@ -32,23 +32,43 @@ class DefaultLocationTracker @Inject constructor(
             return null
         }
 
-        val cts = com.google.android.gms.tasks.CancellationTokenSource()
-        val rawLocation: android.location.Location? = suspendCancellableCoroutine { continuation ->
-            continuation.invokeOnCancellation {
-                cts.cancel()
-            }
-            locationClient.getCurrentLocation(
-                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
-                cts.token
-            )
-            .addOnSuccessListener { location ->
-                continuation.resume(location)
-            }
-            .addOnFailureListener {
-                continuation.resume(null)
-            }
-            .addOnCanceledListener {
-                continuation.resume(null)
+        val lastLocation: android.location.Location? = suspendCancellableCoroutine { continuation ->
+            locationClient.lastLocation
+                .addOnSuccessListener { location ->
+                    continuation.resume(location)
+                }
+                .addOnFailureListener {
+                    continuation.resume(null)
+                }
+                .addOnCanceledListener {
+                    continuation.resume(null)
+                }
+        }
+
+        val MAX_LOCATION_AGE_MS = 15 * 60 * 1000 // 15 minutes
+        val rawLocation: android.location.Location? = if (lastLocation != null && (System.currentTimeMillis() - lastLocation.time) < MAX_LOCATION_AGE_MS) {
+            lastLocation
+        } else {
+            val cts = com.google.android.gms.tasks.CancellationTokenSource()
+            kotlinx.coroutines.withTimeoutOrNull(5000) {
+                suspendCancellableCoroutine { continuation ->
+                    continuation.invokeOnCancellation {
+                        cts.cancel()
+                    }
+                    locationClient.getCurrentLocation(
+                        com.google.android.gms.location.Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                        cts.token
+                    )
+                    .addOnSuccessListener { location ->
+                        continuation.resume(location)
+                    }
+                    .addOnFailureListener {
+                        continuation.resume(null)
+                    }
+                    .addOnCanceledListener {
+                        continuation.resume(null)
+                    }
+                }
             }
         }
 
@@ -56,10 +76,14 @@ class DefaultLocationTracker @Inject constructor(
             return null
         }
 
-        val cityName = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        return LocationData(rawLocation.latitude, rawLocation.longitude, null)
+    }
+
+    override suspend fun getCityName(latitude: Double, longitude: Double): String? {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
-                val addresses = geocoder.getFromLocation(rawLocation.latitude, rawLocation.longitude, 1)
+                val addresses = geocoder.getFromLocation(latitude, longitude, 1)
                 addresses?.firstOrNull()?.locality 
                     ?: addresses?.firstOrNull()?.adminArea 
                     ?: addresses?.firstOrNull()?.countryName
@@ -67,7 +91,5 @@ class DefaultLocationTracker @Inject constructor(
                 null
             }
         }
-
-        return LocationData(rawLocation.latitude, rawLocation.longitude, cityName)
     }
 }

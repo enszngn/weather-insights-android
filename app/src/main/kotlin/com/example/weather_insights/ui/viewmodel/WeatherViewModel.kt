@@ -21,21 +21,41 @@ class WeatherViewModel @Inject constructor(
     val uiState: StateFlow<WeatherUiState> = _uiState.asStateFlow()
 
     init {
-        loadWeather()
+        loadCachedWeatherAndFetch()
+    }
+
+    private fun loadCachedWeatherAndFetch() {
+        viewModelScope.launch {
+            val cached = repository.getCachedWeather()
+            if (cached != null && _uiState.value is WeatherUiState.Loading) {
+                _uiState.value = WeatherUiState.Success(cached)
+            }
+            loadWeather()
+        }
     }
 
     fun loadWeather() {
         viewModelScope.launch {
-            _uiState.value = WeatherUiState.Loading
+            if (_uiState.value !is WeatherUiState.Success) {
+                _uiState.value = WeatherUiState.Loading
+            }
             val location = locationTracker.getCurrentLocation()
             if (location != null) {
+                // Launch geocoding concurrently in the background
+                var geocodedCityName: String? = null
+                val geocodingJob = launch {
+                    geocodedCityName = locationTracker.getCityName(location.latitude, location.longitude)
+                }
+
                 repository.fetchWeather(location.latitude, location.longitude)
                     .collect { result ->
                         result.fold(
                             onSuccess = { data ->
-                                val geocodedName = location.cityName
-                                val finalLocationName = if (!geocodedName.isNullOrEmpty()) {
-                                    geocodedName
+                                // Wait for the concurrent geocoding job to complete
+                                geocodingJob.join()
+
+                                val finalLocationName = if (!geocodedCityName.isNullOrEmpty()) {
+                                    geocodedCityName!!
                                 } else {
                                     if (data.locationName == "Çankaya" || data.locationName == "Ankara") {
                                         "Current Location"
@@ -47,17 +67,21 @@ class WeatherViewModel @Inject constructor(
                                 _uiState.value = WeatherUiState.Success(overriddenData)
                             },
                             onFailure = { error ->
-                                _uiState.value = WeatherUiState.Error(
-                                    error.message ?: "An unknown error occurred"
-                                )
+                                if (_uiState.value !is WeatherUiState.Success) {
+                                    _uiState.value = WeatherUiState.Error(
+                                        error.message ?: "An unknown error occurred"
+                                    )
+                                }
                             }
                         )
                     }
             } else {
-                _uiState.value = WeatherUiState.Error(
-                    message = "Location permission is required to fetch weather information.",
-                    isPermissionRequired = true
-                )
+                if (_uiState.value !is WeatherUiState.Success) {
+                    _uiState.value = WeatherUiState.Error(
+                        message = "Location permission is required to fetch weather information.",
+                        isPermissionRequired = true
+                    )
+                }
             }
         }
     }

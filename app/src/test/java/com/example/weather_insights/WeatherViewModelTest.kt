@@ -11,6 +11,7 @@ import com.example.weather_insights.data.model.WeatherPostPayload
 import com.example.weather_insights.data.model.WeatherResponse
 import com.example.weather_insights.data.network.OpenMeteoApiService
 import com.example.weather_insights.data.network.WeatherApiService
+import com.example.weather_insights.data.datasource.WeatherLocalSource
 import com.example.weather_insights.data.repository.WeatherRepository
 import com.example.weather_insights.ui.viewmodel.WeatherUiState
 import com.example.weather_insights.ui.viewmodel.WeatherViewModel
@@ -35,8 +36,20 @@ class WeatherViewModelTest {
 
     class FakeLocationTracker : LocationTracker {
         var locationResult: LocationData? = null
+        var cityNameResult: String? = null
         override suspend fun getCurrentLocation(): LocationData? {
             return locationResult
+        }
+        override suspend fun getCityName(latitude: Double, longitude: Double): String? {
+            return cityNameResult ?: locationResult?.cityName
+        }
+    }
+
+    class FakeWeatherLocalSource : WeatherLocalSource {
+        var cachedWeather: WeatherData? = null
+        override suspend fun getCachedWeather(): WeatherData? = cachedWeather
+        override suspend fun saveWeatherToCache(data: WeatherData) {
+            cachedWeather = data
         }
     }
 
@@ -94,7 +107,7 @@ class WeatherViewModelTest {
         val fakeLocationTracker = FakeLocationTracker().apply {
             locationResult = null
         }
-        val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService())
+        val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService(), FakeWeatherLocalSource())
 
         val viewModel = WeatherViewModel(repository, fakeLocationTracker)
 
@@ -117,7 +130,7 @@ class WeatherViewModelTest {
                 Response.success(WeatherResponse(success = true, weather = dummyData))
             }
         }
-        val repository = WeatherRepository(fakeWeatherApi, FakeOpenMeteoApiService())
+        val repository = WeatherRepository(fakeWeatherApi, FakeOpenMeteoApiService(), FakeWeatherLocalSource())
 
         val viewModel = WeatherViewModel(repository, fakeLocationTracker)
 
@@ -138,7 +151,7 @@ class WeatherViewModelTest {
                 Response.error(500, "Server Error".toResponseBody())
             }
         }
-        val repository = WeatherRepository(fakeWeatherApi, FakeOpenMeteoApiService())
+        val repository = WeatherRepository(fakeWeatherApi, FakeOpenMeteoApiService(), FakeWeatherLocalSource())
 
         val viewModel = WeatherViewModel(repository, fakeLocationTracker)
 

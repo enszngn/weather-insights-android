@@ -70,3 +70,28 @@ This file contains a historical log of all major changes made to the project.
   - Removed the transparent GlassyPanel window from around the wind speed indicator in the bottom panel.
   - Implemented client-side reverse-geocoding using Android's native `Geocoder` inside `LocationTracker` to retrieve the actual city name.
   - Updated `WeatherViewModel` to override the location name display with the geocoded city name, and completely reject the backend's `"Çankaya"` / `"Ankara"` placeholder defaults.
+
+## Phase 5.3: Launch Latency Optimizations
+- Implemented **Fast Location Fallback** in [DefaultLocationTracker.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/location/DefaultLocationTracker.kt):
+  - Queries FusedLocationProviderClient's cached `lastLocation` first.
+  - Reuses the cached location if it is fresh (obtained within the last 15 minutes), bypassing GPS active satellite scan.
+  - Falls back to low/medium accuracy `PRIORITY_BALANCED_POWER_ACCURACY` with a strict 5-second timeout if the cache is empty or stale.
+- Implemented **Fire-and-Forget Async Caching** in [WeatherRepository.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/repository/WeatherRepository.kt):
+  - Created an application-lifespan `CoroutineScope` using `SupervisorJob` + `Dispatchers.IO` to execute asynchronous operations outside of the UI flow's cancellation boundary.
+  - Added a client-side mapper function `OpenMeteoResponse.toWeatherData()` to map weather parameters (current conditions, hourly blocks, and daily extremes) to `WeatherData`.
+  - Modified the 404 cache miss path to immediately parse and emit the local mapped Open-Meteo response, dismissing the loading screen instantly.
+  - Dispatched the Cloudflare database upload task (`uploadMeteoData`) in the background on the custom repository scope, swallowing network errors to ensure UI transparency.
+- Updated unit test suite in [WeatherRepositoryTest.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/example/weather_insights/WeatherRepositoryTest.kt) to match the new asynchronous caching and local mapping flows.
+
+## Phase 5.4: Parallel Geocoding & Jetpack DataStore Local Caching
+- Added Jetpack DataStore Preferences dependency `androidx.datastore:datastore-preferences` to the versions catalog and app `build.gradle.kts`.
+- Created [WeatherLocalSource.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/datasource/WeatherLocalSource.kt) interface and `DataStoreWeatherLocalSource` to manage weather caching using Jetpack DataStore.
+- Created Hilt module [LocalModule.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/di/LocalModule.kt) to bind `WeatherLocalSource` implementation.
+- Refactored [WeatherRepository.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/repository/WeatherRepository.kt) to inject `WeatherLocalSource`, decoupling it from Android's `Context` and enabling pure unit testing. Saved fetched data to the cache in success paths.
+- Decoupled reverse-geocoding from [DefaultLocationTracker.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/location/DefaultLocationTracker.kt) location lookup:
+  - `getCurrentLocation()` returns coordinates immediately.
+  - Implemented `getCityName()` separately.
+- Overhauled [WeatherViewModel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherViewModel.kt):
+  - On launch, reads cached weather from `repository.getCachedWeather()` and updates UI instantly to `WeatherUiState.Success`, eliminating the initial loading screen.
+  - In `loadWeather()`, launches parallel `getCityName()` background coroutine concurrently with `repository.fetchWeather()`, overlapping geocoder and weather API network latency.
+- Refactored unit test suites in [WeatherRepositoryTest.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/example/weather_insights/WeatherRepositoryTest.kt) and [WeatherViewModelTest.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/example/weather_insights/WeatherViewModelTest.kt) to mock the new local source and asynchronous parallel geocoding. All tests pass successfully.

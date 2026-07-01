@@ -9,6 +9,7 @@ import com.example.weather_insights.data.model.WeatherPostPayload
 import com.example.weather_insights.data.model.WeatherResponse
 import com.example.weather_insights.data.network.OpenMeteoApiService
 import com.example.weather_insights.data.network.WeatherApiService
+import com.example.weather_insights.data.datasource.WeatherLocalSource
 import com.example.weather_insights.data.repository.WeatherRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -19,6 +20,14 @@ import org.junit.Test
 import retrofit2.Response
 
 class WeatherRepositoryTest {
+
+    class FakeWeatherLocalSource : WeatherLocalSource {
+        var cachedWeather: WeatherData? = null
+        override suspend fun getCachedWeather(): WeatherData? = cachedWeather
+        override suspend fun saveWeatherToCache(data: WeatherData) {
+            cachedWeather = data
+        }
+    }
 
     private fun createDummyWeatherData() = WeatherData(
         locationName = "Test City",
@@ -101,7 +110,7 @@ class WeatherRepositoryTest {
         }
         val fakeOpenMeteoApi = FakeOpenMeteoApiService()
 
-        val repository = WeatherRepository(fakeWeatherApi, fakeOpenMeteoApi)
+        val repository = WeatherRepository(fakeWeatherApi, fakeOpenMeteoApi, FakeWeatherLocalSource())
         val result = repository.fetchWeather(52.52, 13.41).first()
 
         assertTrue(result.isSuccess)
@@ -110,15 +119,11 @@ class WeatherRepositoryTest {
 
     @Test
     fun testFetchWeather_CacheMiss_SuccessFallback() = runBlocking {
-        val fakeWeather = createDummyWeatherData()
         val fakeMeteo = createDummyMeteoResponse()
 
         val fakeWeatherApi = FakeWeatherApiService().apply {
             getResponse = {
                 Response.error(404, "Not Found".toResponseBody())
-            }
-            postResponse = {
-                Response.success(WeatherResponse(success = true, weather = fakeWeather))
             }
         }
         val fakeOpenMeteoApi = FakeOpenMeteoApiService().apply {
@@ -127,11 +132,18 @@ class WeatherRepositoryTest {
             }
         }
 
-        val repository = WeatherRepository(fakeWeatherApi, fakeOpenMeteoApi)
+        val repository = WeatherRepository(fakeWeatherApi, fakeOpenMeteoApi, FakeWeatherLocalSource())
         val result = repository.fetchWeather(52.52, 13.41).first()
 
         assertTrue(result.isSuccess)
-        assertEquals(fakeWeather, result.getOrNull())
+        val emittedWeather = result.getOrNull()
+        org.junit.Assert.assertNotNull(emittedWeather)
+        assertEquals("Current Location", emittedWeather?.locationName)
+        assertEquals(52.52, emittedWeather?.lat ?: 0.0, 0.001)
+        assertEquals(13.41, emittedWeather?.lon ?: 0.0, 0.001)
+
+        // Give background coroutine time to execute the POST request
+        kotlinx.coroutines.delay(200)
         assertEquals(fakeMeteo, fakeWeatherApi.lastPostPayload?.meteoData)
     }
 
@@ -148,7 +160,7 @@ class WeatherRepositoryTest {
             }
         }
 
-        val repository = WeatherRepository(fakeWeatherApi, fakeOpenMeteoApi)
+        val repository = WeatherRepository(fakeWeatherApi, fakeOpenMeteoApi, FakeWeatherLocalSource())
         val result = repository.fetchWeather(52.52, 13.41).first()
 
         assertTrue(result.isFailure)
