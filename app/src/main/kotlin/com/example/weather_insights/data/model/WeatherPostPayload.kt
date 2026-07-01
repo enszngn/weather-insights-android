@@ -6,5 +6,6 @@ import kotlinx.serialization.Serializable
 data class WeatherPostPayload(
     val lat: Double,
     val lon: Double,
+    val locationName: String? = null,
     val meteoData: OpenMeteoResponse
 )

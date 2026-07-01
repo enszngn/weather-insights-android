@@ -115,3 +115,17 @@ This file contains a historical log of all major changes made to the project.
 - Rewrote [HomeScreen.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/screens/HomeScreen.kt) from 484 lines down to 40 lines — now purely an orchestration composable responsible only for background color and state routing.
 - All 7 existing unit tests continue to pass with zero changes to test logic.
 
+## Bugfix: `locationName` Always Showing "Çankaya" in Analytics
+
+### Root Cause (Two Bugs)
+**Bug 1 — Missing field in POST payload:** `WeatherPostPayload` did not include a `locationName` field. The Cloudflare Worker had no city name supplied by the Android client, so it fell back to IP-based geolocation of the HTTP request. Since the developer's machine is in Turkey, every POST resolved to "Çankaya" regardless of the GPS coordinates.
+
+**Bug 2 — Timing race:** The ViewModel launched `getCityName()` geocoding **concurrently** with `fetchWeather()`. The fire-and-forget POST inside the Repository fired before geocoding finished, meaning even if `locationName` had been in the payload, it would have been `null` or `"Current Location"`.
+
+### Fix
+- Added `locationName: String? = null` to [WeatherPostPayload.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/WeatherPostPayload.kt) — the Worker can now read and store the Android-geocoded name directly.
+- Added `locationName: String = "Current Location"` parameter to `OpenMeteoResponse.toWeatherData()` in [OpenMeteoMapper.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/mapper/OpenMeteoMapper.kt) — both the local DataStore cache and the POST now carry the correct city name.
+- Changed `fetchWeather()` in [WeatherRepository.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/repository/WeatherRepository.kt) to accept `locationName: String? = null` and thread it through to both the payload and the mapper.
+- Changed [WeatherViewModel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherViewModel.kt) to await `getCityName()` **before** calling `fetchWeather()`. Android's local `Geocoder` is a fast in-process call (~50–150 ms) and not a network bottleneck; the simplification also removes the `geocodingJob.join()` + `data.copy()` secondary override pattern entirely.
+
+

@@ -31,7 +31,7 @@ class WeatherRepository @Inject constructor(
         localSource.saveWeatherToCache(data)
     }
 
-    fun fetchWeather(lat: Double, lon: Double): Flow<Result<WeatherData>> = flow {
+    fun fetchWeather(lat: Double, lon: Double, locationName: String? = null): Flow<Result<WeatherData>> = flow {
         try {
             // 1. Try fetching from Cloudflare Worker
             val workerResponse = weatherApiService.getWeather(lat, lon)
@@ -53,7 +53,12 @@ class WeatherRepository @Inject constructor(
                         // 3. Post raw meteo data back to Worker to cache in the background (fire and forget)
                         repositoryScope.launch {
                             try {
-                                val payload = WeatherPostPayload(lat = lat, lon = lon, meteoData = rawMeteo)
+                                val payload = WeatherPostPayload(
+                                    lat = lat,
+                                    lon = lon,
+                                    locationName = locationName,
+                                    meteoData = rawMeteo
+                                )
                                 weatherApiService.uploadMeteoData(payload)
                             } catch (e: Exception) {
                                 // Silent failure - do not affect UI state
@@ -61,7 +66,7 @@ class WeatherRepository @Inject constructor(
                         }
 
                         // Map and emit locally structured data immediately to stop loading spinner
-                        val localWeatherData = rawMeteo.toWeatherData()
+                        val localWeatherData = rawMeteo.toWeatherData(locationName ?: "Current Location")
                         saveWeatherToCache(localWeatherData)
                         emit(Result.success(localWeatherData))
                         return@flow

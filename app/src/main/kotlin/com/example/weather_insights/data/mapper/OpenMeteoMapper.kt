@@ -8,10 +8,13 @@ import com.example.weather_insights.data.model.WeatherData
 /**
  * Maps a raw Open-Meteo API response to the app's internal [WeatherData] model.
  *
+ * [locationName] should be the Android-geocoded city name. Falls back to "Current Location"
+ * if geocoding has not yet completed or failed.
+ *
  * For day 0, current conditions are taken from the `current` block.
  * For subsequent days, daily aggregates are computed from the hourly data.
  */
-fun OpenMeteoResponse.toWeatherData(): WeatherData {
+fun OpenMeteoResponse.toWeatherData(locationName: String = "Current Location"): WeatherData {
     val forecastDays = daily.time.mapIndexed { i, dateStr ->
         val startIndex = i * 24
         val dayHourly = mutableListOf<HourlyForecast>()
@@ -57,7 +60,7 @@ fun OpenMeteoResponse.toWeatherData(): WeatherData {
     }
 
     return WeatherData(
-        locationName = "Current Location",
+        locationName = locationName,
         lat = latitude,
         lon = longitude,
         forecast = forecastDays

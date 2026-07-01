@@ -68,21 +68,17 @@ class WeatherViewModel @Inject constructor(
                 return@launch
             }
 
-            // Launch geocoding concurrently with the weather fetch to overlap network latency
-            var geocodedCityName: String? = null
-            val geocodingJob = launch {
-                geocodedCityName = locationTracker.getCityName(location.latitude, location.longitude)
-            }
+            // Geocode before fetching — Android's local Geocoder is fast (~50–150 ms) and
+            // the result must be available when the Repository fires the POST to the Worker.
+            val cityName = locationTracker.getCityName(location.latitude, location.longitude)
 
-            repository.fetchWeather(location.latitude, location.longitude)
+            repository.fetchWeather(location.latitude, location.longitude, cityName)
                 .collect { result ->
                     result.fold(
                         onSuccess = { data ->
-                            geocodingJob.join()
-                            val finalLocationName = geocodedCityName
-                                ?.takeIf { it.isNotEmpty() }
-                                ?: data.locationName
-                            _uiState.value = WeatherUiState.Success(data.copy(locationName = finalLocationName))
+                            // City name is already embedded in `data` (applied by the mapper).
+                            // Use it directly; no secondary override needed.
+                            _uiState.value = WeatherUiState.Success(data)
                         },
                         onFailure = { error ->
                             setNonSuccessState(
