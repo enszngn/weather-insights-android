@@ -189,4 +189,24 @@ Apply specific color tints to condition icons for better visual parsing:
   - White / Light blue for snow and rain respectively.
 - **[`WeatherTimeline.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherTimeline.kt)**: Integrated the mapped icon color into the `HourRow` weather condition `Icon`'s `tint` parameter.
 
+## Package Name Rename (`com.example.weather_insights` -> `com.weatherinsights`)
+
+### Goal
+Rename the application's package name to `com.weatherinsights` to align it closely with `weather-insightscom` (Java packages cannot contain hyphens).
+
+### Implementation
+- **Source Files Move**: Moved all files from `app/src/main/kotlin/com/example/weather_insights/` to `app/src/main/kotlin/com/weatherinsights/`, and from `app/src/test/java/com/example/weather_insights/` to `app/src/test/java/com/weatherinsights/`.
+- **Global Search and Replace**: Globally replaced all instances of `com.example.weather_insights` with `com.weatherinsights` in all Kotlin source files, test files, Gradle scripts (`build.gradle.kts`), and `AndroidManifest.xml`.
+- **Cleaned Build Cache**: Ran `./gradlew clean` to purge stale generated Hilt and compiler annotation-processing code referencing the old package name, then verified the build compiles and all 11 unit tests pass.
+
+## App Display Name Change (`weather-insights` -> `Weather Insights`)
+
+### Goal
+Change the user-facing launcher name on the Android home screen/app drawer to `Weather Insights` (properly capitalized and containing spaces).
+
+### Implementation
+- **[`strings.xml`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/res/values/strings.xml)**: Changed `<string name="app_name">weather-insights</string>` to `<string name="app_name">Weather Insights</string>`.
+
+
+
 

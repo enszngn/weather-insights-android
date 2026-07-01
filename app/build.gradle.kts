@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.weather_insights"
+    namespace = "com.weatherinsights"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -15,7 +15,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.weather_insights"
+        applicationId = "com.weatherinsights"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

@@ -23,5 +23,9 @@ This file tracks the real-time progress of tasks. AI Agents must update this fil
 - [x] UI: Make all glassy panels and bubbles have sharp edges (0.dp corner radius)
 - [x] UI: Enlarge wind speed icon to 54.dp and delete redundant text label
 - [x] UI: Color-tint weather timeline icons (yellow sun, grey clouds, blue moon, dark grey storm)
+- [x] Project: Rename package name to com.weatherinsights globally (move files and update references)
+- [x] Project: Change app display name in strings.xml to Weather Insights
+
+
 
 
