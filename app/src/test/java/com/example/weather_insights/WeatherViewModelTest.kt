@@ -37,11 +37,15 @@ class WeatherViewModelTest {
     class FakeLocationTracker : LocationTracker {
         var locationResult: LocationData? = null
         var cityNameResult: String? = null
+        var locationPermissionGranted = true
         override suspend fun getCurrentLocation(): LocationData? {
             return locationResult
         }
         override suspend fun getCityName(latitude: Double, longitude: Double): String? {
             return cityNameResult ?: locationResult?.cityName
+        }
+        override fun hasLocationPermission(): Boolean {
+            return locationPermissionGranted
         }
     }
 
@@ -105,6 +109,7 @@ class WeatherViewModelTest {
     @Test
     fun testViewModelInit_PermissionDenied_TransitionsToPermissionError() = runTest {
         val fakeLocationTracker = FakeLocationTracker().apply {
+            locationPermissionGranted = false
             locationResult = null
         }
         val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService(), FakeWeatherLocalSource())
@@ -117,6 +122,24 @@ class WeatherViewModelTest {
         assertTrue(state is WeatherUiState.Error)
         assertEquals("Location permission is required to fetch weather information.", (state as WeatherUiState.Error).message)
         assertTrue(state.isPermissionRequired)
+    }
+
+    @Test
+    fun testViewModelInit_LocationNull_TransitionsToLocationError() = runTest {
+        val fakeLocationTracker = FakeLocationTracker().apply {
+            locationPermissionGranted = true
+            locationResult = null
+        }
+        val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService(), FakeWeatherLocalSource())
+
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker)
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state is WeatherUiState.Error)
+        assertEquals("Could not retrieve device location. Please ensure location services are enabled on your device.", (state as WeatherUiState.Error).message)
+        assertTrue(!state.isPermissionRequired)
     }
 
     @Test

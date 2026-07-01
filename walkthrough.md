@@ -69,7 +69,7 @@ This file contains a historical log of all major changes made to the project.
   - Refactored `LocationTracker` to query live GPS updates via `getCurrentLocation` and `PRIORITY_HIGH_ACCURACY` to bypass stale location cache.
   - Removed the transparent GlassyPanel window from around the wind speed indicator in the bottom panel.
   - Implemented client-side reverse-geocoding using Android's native `Geocoder` inside `LocationTracker` to retrieve the actual city name.
-  - Updated `WeatherViewModel` to override the location name display with the geocoded city name, and completely reject the backend's `"Çankaya"` / `"Ankara"` placeholder defaults.
+  - Updated `WeatherViewModel` to properly display the dynamically geocoded city name.
 
 ## Phase 5.3: Launch Latency Optimizations
 - Implemented **Fast Location Fallback** in [DefaultLocationTracker.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/location/DefaultLocationTracker.kt):
