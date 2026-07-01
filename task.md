@@ -17,4 +17,11 @@ This file tracks the real-time progress of tasks. AI Agents must update this fil
 - [x] Phase 5.3: Performance Optimization (Fast Location Fallback & Async Caching)
 - [x] Phase 5.4: Parallel Geocoding & Jetpack DataStore Local Caching
 - [x] Phase 6: Redundancy Cleanup & God Module Refactor
+- [x] Bugfix: locationName always "Çankaya" in analytics
+- [x] Feature: Manual refresh button with 15-minute persistent rate limiting (max 3 refreshes)
+- [x] UI: Replace all remaining Unicode emojis with Material Icons
+- [x] UI: Make all glassy panels and bubbles have sharp edges (0.dp corner radius)
+- [x] UI: Enlarge wind speed icon to 54.dp and delete redundant text label
+- [x] UI: Color-tint weather timeline icons (yellow sun, grey clouds, blue moon, dark grey storm)
+
 

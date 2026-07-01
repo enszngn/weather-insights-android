@@ -17,6 +17,16 @@ import javax.inject.Singleton
 interface WeatherLocalSource {
     suspend fun getCachedWeather(): WeatherData?
     suspend fun saveWeatherToCache(data: WeatherData)
+
+    /**
+     * Returns the persisted refresh (count, windowStartMs) pair, or null if none saved yet.
+     */
+    suspend fun getRefreshState(): Pair<Int, Long>?
+
+    /**
+     * Persists the refresh counter and the epoch-ms timestamp of the current window's first refresh.
+     */
+    suspend fun saveRefreshState(count: Int, windowStart: Long)
 }
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "weather_settings")
@@ -28,6 +38,8 @@ class DataStoreWeatherLocalSource @Inject constructor(
 ) : WeatherLocalSource {
 
     private val CACHED_WEATHER_KEY = stringPreferencesKey("cached_weather")
+    private val REFRESH_COUNT_KEY = stringPreferencesKey("refresh_count")
+    private val REFRESH_WINDOW_START_KEY = stringPreferencesKey("refresh_window_start")
 
     override suspend fun getCachedWeather(): WeatherData? {
         return try {
@@ -49,6 +61,30 @@ class DataStoreWeatherLocalSource @Inject constructor(
             val jsonString = json.encodeToString(WeatherData.serializer(), data)
             context.dataStore.edit { preferences ->
                 preferences[CACHED_WEATHER_KEY] = jsonString
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+    }
+
+    override suspend fun getRefreshState(): Pair<Int, Long>? {
+        return try {
+            val prefs = context.dataStore.data.firstOrNull() ?: return null
+            val countStr = prefs[REFRESH_COUNT_KEY] ?: return null
+            val windowStr = prefs[REFRESH_WINDOW_START_KEY] ?: return null
+            val count = countStr.toIntOrNull() ?: return null
+            val windowStart = windowStr.toLongOrNull() ?: return null
+            count to windowStart
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    override suspend fun saveRefreshState(count: Int, windowStart: Long) {
+        try {
+            context.dataStore.edit { prefs ->
+                prefs[REFRESH_COUNT_KEY] = count.toString()
+                prefs[REFRESH_WINDOW_START_KEY] = windowStart.toString()
             }
         } catch (e: Exception) {
             // Ignore

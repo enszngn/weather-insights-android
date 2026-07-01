@@ -24,6 +24,9 @@ fun HomeScreen(
     uiState: WeatherUiState,
     onRequestPermission: () -> Unit,
     onRetry: () -> Unit,
+    onRefresh: () -> Unit,
+    canRefresh: Boolean,
+    isRefreshing: Boolean,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -34,7 +37,12 @@ fun HomeScreen(
     ) {
         when (uiState) {
             is WeatherUiState.Loading -> LoadingView()
-            is WeatherUiState.Success -> WeatherContent(uiState.weatherData)
+            is WeatherUiState.Success -> WeatherContent(
+                weatherData = uiState.weatherData,
+                onRefresh = onRefresh,
+                canRefresh = canRefresh,
+                isRefreshing = isRefreshing
+            )
             is WeatherUiState.Error -> ErrorView(
                 message = uiState.message,
                 isPermissionRequired = uiState.isPermissionRequired,

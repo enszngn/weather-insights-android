@@ -27,6 +27,8 @@ class WeatherRepositoryTest {
         override suspend fun saveWeatherToCache(data: WeatherData) {
             cachedWeather = data
         }
+        override suspend fun getRefreshState(): Pair<Int, Long>? = null
+        override suspend fun saveRefreshState(count: Int, windowStart: Long) { /* no-op in tests */ }
     }
 
     private fun createDummyWeatherData() = WeatherData(

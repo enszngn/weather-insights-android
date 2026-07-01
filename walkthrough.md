@@ -127,5 +127,66 @@ This file contains a historical log of all major changes made to the project.
 - Added `locationName: String = "Current Location"` parameter to `OpenMeteoResponse.toWeatherData()` in [OpenMeteoMapper.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/mapper/OpenMeteoMapper.kt) — both the local DataStore cache and the POST now carry the correct city name.
 - Changed `fetchWeather()` in [WeatherRepository.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/repository/WeatherRepository.kt) to accept `locationName: String? = null` and thread it through to both the payload and the mapper.
 - Changed [WeatherViewModel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherViewModel.kt) to await `getCityName()` **before** calling `fetchWeather()`. Android's local `Geocoder` is a fast in-process call (~50–150 ms) and not a network bottleneck; the simplification also removes the `geocodingJob.join()` + `data.copy()` secondary override pattern entirely.
+## Manual Refresh Button with 15-Minute Rate Limiting
+
+### Goal
+Add a refresh button next to the city name on the success screen. Users get 3 manual refreshes per 15-minute rolling window, matching the cloud cache TTL. The limit persists across app restarts within the window.
+
+### Implementation
+
+- **[WeatherLocalSource.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/datasource/WeatherLocalSource.kt):** Added `getRefreshState(): Pair<Int, Long>?` and `saveRefreshState(count, windowStart)` interface methods + DataStore implementation using two new preference keys (`refresh_count`, `refresh_window_start`).
+- **[WeatherViewModel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherViewModel.kt):**
+  - Injected `WeatherLocalSource` as a third constructor parameter.
+  - On `init`, reads persisted refresh state; resets counter if 15-minute window has expired.
+  - Added `_canRefresh: MutableStateFlow<Boolean>` exposed as `canRefresh: StateFlow<Boolean>`.
+  - Added `fun refresh()`: guards against exceeding `MAX_REFRESHES = 3`, records `refreshWindowStart` on first press, persists to DataStore, then calls `loadWeather()`.
+- **[WeatherTimeline.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherTimeline.kt):** Added `onRefresh` and `canRefresh` parameters to `WeatherContent`. City name now lives inside a `Row` with an `IconButton` (`Icons.Default.Refresh`). Button is dimmed (`alpha 0.35f`) and non-interactive when `canRefresh == false`.
+- **[HomeScreen.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/screens/HomeScreen.kt):** Threaded `onRefresh` and `canRefresh` through to `WeatherContent`.
+- **[MainActivity.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/MainActivity.kt):** Collects `canRefresh` state; wires `onRefresh = { viewModel.refresh() }`.
+- **Test files:** Updated `FakeWeatherLocalSource` in both `WeatherRepositoryTest` and `WeatherViewModelTest` with the new interface stubs. Fixed the `FakeLocationTracker` signature in `WeatherViewModelTest` to match the new `getCurrentLocation(forceRefresh)` signature, added comprehensive unit tests for `refresh()`, rate limiting, and expired window reset, and verified that all 11 tests pass successfully.
+
+## Wind Speed Emoji Replacement with Air Symbol (Rounded)
+
+### Goal
+Replace the custom `💨` wind emoji inside the bottom dashboard with a professional, clean vector icon that represents wind, utilizing an official pre-designed Material icon.
+
+### Implementation
+- **[`libs.versions.toml`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/gradle/libs.versions.toml)**: Added `compose-material-icons-extended` to compose libraries.
+- **[`app/build.gradle.kts`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/build.gradle.kts)**: Added implementation dependency `libs.compose.material.icons.extended` to include standard Material icons.
+- **[`WeatherTimeline.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherTimeline.kt)**: Imported and replaced the `Text("💨")` with `Icon(imageVector = Icons.Rounded.Air, contentDescription = "Wind icon", tint = Color.White, modifier = Modifier.size(38.dp))`.
+
+## Full Emojis to Material Icons Migration & Sharp Corners Styling
+
+### Goal
+Remove all remaining emojis, replace them with official Google Material Design Icons (`Icons.Rounded.*`), set card background corner shapes to flat/sharp (`0.dp`), enlarge the wind icon to `54.dp` and remove the redundant "Wind Speed" text label.
+
+### Implementation
+- **[`WeatherMapper.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherMapper.kt)**: Added `mapCodeToIcon(code, isNight)` to resolve weather conditions to standard rounded icons (`WbSunny`, `NightsStay`, `Cloud`, `Grain`, `WaterDrop`, `AcUnit`, `Thunderstorm`).
+- **[`WeatherTimeline.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherTimeline.kt)**:
+  - Replaced hourly timeline code emojis with corresponding icons.
+  - Replaced hourly humidity droplet `Text("💧")` with `Icon(Icons.Rounded.WaterDrop)`.
+  - Replaced sunrise/sunset row emojis with `Icons.Rounded.WbTwilight`.
+  - Replaced wind indicator with size `54.dp` and deleted the text label underneath.
+- **[`GlassyPanel.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/GlassyPanel.kt)**: Updated default `cornerRadius` from `20.dp` to `0.dp` to make panel/bubble shapes sharp.
+- **[`LoadingView.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/LoadingView.kt)** & **[`ErrorView.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/ErrorView.kt)**: Removed `cornerRadius` overrides on `GlassyPanel` to enforce sharp corners.
+- **[`ErrorView.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/ErrorView.kt)**: Replaced emojis `📍` and `⚠️` in titles with a `Row` displaying clean text alongside the corresponding Material Icon (`Icons.Rounded.LocationOn` / `Icons.Rounded.Warning`).
+
+## Weather Icons Color Tinting Customization
+
+### Goal
+Apply specific color tints to condition icons for better visual parsing:
+- Sun: Slightly yellowish
+- Clouds: Slightly greyish
+- Moon: Slightly light blueish
+- Thunderstorm: Slightly darker greyish
+
+### Implementation
+- **[`WeatherMapper.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherMapper.kt)**: Added `mapCodeToIconColor(code, isNight)` returning:
+  - Yellow: `Color(0xFFFFEE58)` for day clear skies.
+  - Light blue: `Color(0xFFB3E5FC)` for night clear sky (moon).
+  - Grey: `Color(0xFFECEFF1)` for clouds.
+  - Darker grey: `Color(0xFF78909C)` for thunderstorms.
+  - White / Light blue for snow and rain respectively.
+- **[`WeatherTimeline.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherTimeline.kt)**: Integrated the mapped icon color into the `HourRow` weather condition `Icon`'s `tint` parameter.
 
 

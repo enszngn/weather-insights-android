@@ -1,5 +1,11 @@
 package com.example.weather_insights.ui.components
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,13 +15,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.rounded.Air
+import androidx.compose.material.icons.rounded.WbTwilight
+import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,7 +49,12 @@ import kotlin.math.roundToInt
  * 24-hour timeline panel, and the wind speed dashboard at the bottom.
  */
 @Composable
-internal fun WeatherContent(weatherData: WeatherData) {
+internal fun WeatherContent(
+    weatherData: WeatherData,
+    onRefresh: () -> Unit,
+    canRefresh: Boolean,
+    isRefreshing: Boolean
+) {
     val currentDay = weatherData.forecast.firstOrNull()
     val currentTemp = currentDay?.temp ?: 0.0
     val currentWindSpeed = currentDay?.windSpeed ?: 0.0
@@ -53,14 +76,53 @@ internal fun WeatherContent(weatherData: WeatherData) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = weatherData.locationName,
-                fontSize = 44.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary,
-                letterSpacing = 0.5.sp,
-                textAlign = TextAlign.Center
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = weatherData.locationName,
+                    fontSize = 44.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    letterSpacing = 0.5.sp,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Infinite rotation when actively refreshing
+                val infiniteTransition = rememberInfiniteTransition(label = "refresh_spin")
+                val rotation by infiniteTransition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 360f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 700, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "refresh_rotation"
+                )
+
+                val buttonEnabled = canRefresh && !isRefreshing
+                IconButton(
+                    onClick = { if (buttonEnabled) onRefresh() },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .alpha(if (buttonEnabled) 1f else 0.35f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = when {
+                            isRefreshing -> "Refreshing..."
+                            !canRefresh -> "Refresh limit reached"
+                            else -> "Refresh weather"
+                        },
+                        tint = TextPrimary,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .rotate(if (isRefreshing) rotation else 0f)
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "${currentTemp.roundToInt()}°",
@@ -110,15 +172,13 @@ internal fun WeatherContent(weatherData: WeatherData) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(text = "💨", fontSize = 38.sp)
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Wind Speed",
-                    fontSize = 14.sp,
-                    color = Color.White,
-                    fontWeight = FontWeight.Medium
+                Icon(
+                    imageVector = Icons.Rounded.Air,
+                    contentDescription = "Wind icon",
+                    tint = Color.White,
+                    modifier = Modifier.size(54.dp)
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "${currentWindSpeed.roundToInt()} km/h",
                     fontSize = 26.sp,
@@ -192,8 +252,8 @@ private fun buildTimeline(weatherData: WeatherData, currentHour: Int): List<Time
 private fun TimelineRow(entry: TimelineEntry) {
     when (entry) {
         is TimelineEntry.Hour -> HourRow(entry)
-        is TimelineEntry.Sunset -> SolarEventRow(time = entry.time, emoji = "🌇", label = "Sunset")
-        is TimelineEntry.Sunrise -> SolarEventRow(time = entry.time, emoji = "🌅", label = "Sunrise")
+        is TimelineEntry.Sunset -> SolarEventRow(time = entry.time, icon = Icons.Rounded.WbTwilight, label = "Sunset")
+        is TimelineEntry.Sunrise -> SolarEventRow(time = entry.time, icon = Icons.Rounded.WbTwilight, label = "Sunrise")
     }
 }
 
@@ -218,13 +278,20 @@ private fun HourRow(entry: TimelineEntry.Hour) {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.weight(1f)
         ) {
-            Text(
-                text = WeatherMapper.mapCodeToEmoji(item.weatherCode, entry.isNight),
-                fontSize = 32.sp
+            Icon(
+                imageVector = WeatherMapper.mapCodeToIcon(item.weatherCode, entry.isNight),
+                contentDescription = WeatherMapper.mapCodeToDescription(item.weatherCode),
+                tint = WeatherMapper.mapCodeToIconColor(item.weatherCode, entry.isNight),
+                modifier = Modifier.size(32.dp)
             )
             Spacer(modifier = Modifier.height(2.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "💧", fontSize = 11.sp)
+                Icon(
+                    imageVector = Icons.Rounded.WaterDrop,
+                    contentDescription = "Humidity",
+                    tint = Color.White,
+                    modifier = Modifier.size(12.dp)
+                )
                 Spacer(modifier = Modifier.width(2.dp))
                 Text(
                     text = "%${item.humidity}",
@@ -250,7 +317,7 @@ private fun HourRow(entry: TimelineEntry.Hour) {
  * had duplicate code for these two cases; this composable eliminates that duplication.
  */
 @Composable
-private fun SolarEventRow(time: String, emoji: String, label: String) {
+private fun SolarEventRow(time: String, icon: ImageVector, label: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -269,7 +336,12 @@ private fun SolarEventRow(time: String, emoji: String, label: String) {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.weight(1f)
         ) {
-            Text(text = emoji, fontSize = 32.sp)
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = Color(0xFFFFD166),
+                modifier = Modifier.size(32.dp)
+            )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = label,

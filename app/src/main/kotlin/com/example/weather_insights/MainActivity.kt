@@ -28,6 +28,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             WeatherInsightsTheme {
                 val uiState by viewModel.uiState.collectAsState()
+                val canRefresh by viewModel.canRefresh.collectAsState()
+                val isRefreshing by viewModel.isRefreshing.collectAsState()
 
                 val permissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -63,7 +65,12 @@ class MainActivity : ComponentActivity() {
                         },
                         onRetry = {
                             viewModel.loadWeather()
-                        }
+                        },
+                        onRefresh = {
+                            viewModel.refresh()
+                        },
+                        canRefresh = canRefresh,
+                        isRefreshing = isRefreshing
                     )
                 }
             }

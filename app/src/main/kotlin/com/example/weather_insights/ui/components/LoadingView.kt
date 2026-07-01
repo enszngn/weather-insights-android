@@ -27,8 +27,7 @@ internal fun LoadingView() {
         contentAlignment = Alignment.Center
     ) {
         GlassyPanel(
-            modifier = Modifier.padding(32.dp),
-            cornerRadius = 24.dp
+            modifier = Modifier.padding(32.dp)
         ) {
             Column(
                 modifier = Modifier.padding(32.dp),

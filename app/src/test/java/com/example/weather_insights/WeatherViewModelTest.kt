@@ -38,7 +38,10 @@ class WeatherViewModelTest {
         var locationResult: LocationData? = null
         var cityNameResult: String? = null
         var locationPermissionGranted = true
-        override suspend fun getCurrentLocation(): LocationData? {
+        var lastForceRefreshReceived: Boolean? = null
+
+        override suspend fun getCurrentLocation(forceRefresh: Boolean): LocationData? {
+            lastForceRefreshReceived = forceRefresh
             return locationResult
         }
         override suspend fun getCityName(latitude: Double, longitude: Double): String? {
@@ -51,9 +54,20 @@ class WeatherViewModelTest {
 
     class FakeWeatherLocalSource : WeatherLocalSource {
         var cachedWeather: WeatherData? = null
+        private var refreshCount: Int = 0
+        private var refreshWindowStart: Long = 0L
+
         override suspend fun getCachedWeather(): WeatherData? = cachedWeather
         override suspend fun saveWeatherToCache(data: WeatherData) {
             cachedWeather = data
+        }
+        override suspend fun getRefreshState(): Pair<Int, Long>? {
+            return if (refreshCount == 0 && refreshWindowStart == 0L) null
+            else refreshCount to refreshWindowStart
+        }
+        override suspend fun saveRefreshState(count: Int, windowStart: Long) {
+            refreshCount = count
+            refreshWindowStart = windowStart
         }
     }
 
@@ -114,7 +128,7 @@ class WeatherViewModelTest {
         }
         val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService(), FakeWeatherLocalSource())
 
-        val viewModel = WeatherViewModel(repository, fakeLocationTracker)
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, FakeWeatherLocalSource())
 
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -132,7 +146,7 @@ class WeatherViewModelTest {
         }
         val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService(), FakeWeatherLocalSource())
 
-        val viewModel = WeatherViewModel(repository, fakeLocationTracker)
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, FakeWeatherLocalSource())
 
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -155,7 +169,7 @@ class WeatherViewModelTest {
         }
         val repository = WeatherRepository(fakeWeatherApi, FakeOpenMeteoApiService(), FakeWeatherLocalSource())
 
-        val viewModel = WeatherViewModel(repository, fakeLocationTracker)
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, FakeWeatherLocalSource())
 
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -176,7 +190,7 @@ class WeatherViewModelTest {
         }
         val repository = WeatherRepository(fakeWeatherApi, FakeOpenMeteoApiService(), FakeWeatherLocalSource())
 
-        val viewModel = WeatherViewModel(repository, fakeLocationTracker)
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, FakeWeatherLocalSource())
 
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -184,5 +198,121 @@ class WeatherViewModelTest {
         assertTrue(state is WeatherUiState.Error)
         assertEquals("Worker error: Server Error", (state as WeatherUiState.Error).message)
         assertTrue(!state.isPermissionRequired)
+    }
+
+    @Test
+    fun testViewModelRefresh_WithinLimit_IncrementsCountAndTriggersFetchWithForceRefresh() = runTest {
+        val dummyData = WeatherData("Ankara", 39.93, 32.85, emptyList())
+        val fakeLocationTracker = FakeLocationTracker().apply {
+            locationResult = LocationData(39.93, 32.85)
+        }
+        val fakeWeatherApi = FakeWeatherApiService().apply {
+            getResponse = {
+                Response.success(WeatherResponse(success = true, weather = dummyData))
+            }
+        }
+        val repository = WeatherRepository(fakeWeatherApi, FakeOpenMeteoApiService(), FakeWeatherLocalSource())
+        val fakeLocalSource = FakeWeatherLocalSource()
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, fakeLocalSource)
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.canRefresh.value)
+        viewModel.refresh()
+        
+        testDispatcher.scheduler.advanceUntilIdle()
+        
+        // Assert that the tracker received forceRefresh = true
+        assertEquals(true, fakeLocationTracker.lastForceRefreshReceived)
+        
+        // State should be success
+        assertTrue(viewModel.uiState.value is WeatherUiState.Success)
+        
+        // Persisted state check
+        val refreshState = fakeLocalSource.getRefreshState()
+        assertEquals(1, refreshState?.first)
+    }
+
+    @Test
+    fun testViewModelRefresh_HitLimit_PreventsFurtherRefreshes() = runTest {
+        val dummyData = WeatherData("Ankara", 39.93, 32.85, emptyList())
+        val fakeLocationTracker = FakeLocationTracker().apply {
+            locationResult = LocationData(39.93, 32.85)
+        }
+        val fakeWeatherApi = FakeWeatherApiService().apply {
+            getResponse = {
+                Response.success(WeatherResponse(success = true, weather = dummyData))
+            }
+        }
+        val repository = WeatherRepository(fakeWeatherApi, FakeOpenMeteoApiService(), FakeWeatherLocalSource())
+        val fakeLocalSource = FakeWeatherLocalSource()
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, fakeLocalSource)
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Trigger 3 refreshes
+        assertTrue(viewModel.canRefresh.value)
+        viewModel.refresh()
+        testDispatcher.scheduler.advanceUntilIdle()
+        
+        assertTrue(viewModel.canRefresh.value)
+        viewModel.refresh()
+        testDispatcher.scheduler.advanceUntilIdle()
+        
+        assertTrue(viewModel.canRefresh.value)
+        viewModel.refresh()
+        testDispatcher.scheduler.advanceUntilIdle()
+        
+        // After 3 refreshes, canRefresh should be false
+        assertTrue(!viewModel.canRefresh.value)
+        
+        // Try a 4th refresh
+        fakeLocationTracker.lastForceRefreshReceived = null
+        viewModel.refresh()
+        testDispatcher.scheduler.advanceUntilIdle()
+        
+        // Tracker shouldn't have been called on 4th refresh
+        assertEquals(null, fakeLocationTracker.lastForceRefreshReceived)
+    }
+
+    @Test
+    fun testViewModelRefresh_RestoreActiveWindow_KeepsCounter() = runTest {
+        val fakeLocationTracker = FakeLocationTracker().apply {
+            locationResult = LocationData(39.93, 32.85)
+        }
+        val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService(), FakeWeatherLocalSource())
+        
+        val fakeLocalSource = FakeWeatherLocalSource()
+        // Save state: 2 refreshes, window started 1 minute ago
+        fakeLocalSource.saveRefreshState(2, System.currentTimeMillis() - 60_000)
+        
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, fakeLocalSource)
+        testDispatcher.scheduler.advanceUntilIdle()
+        
+        // It should start with canRefresh = true (since 2 < 3)
+        assertTrue(viewModel.canRefresh.value)
+        
+        // Do 1 refresh -> counter reaches 3 -> canRefresh becomes false
+        viewModel.refresh()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(!viewModel.canRefresh.value)
+    }
+
+    @Test
+    fun testViewModelRefresh_RestoreExpiredWindow_ResetsCounter() = runTest {
+        val fakeLocationTracker = FakeLocationTracker().apply {
+            locationResult = LocationData(39.93, 32.85)
+        }
+        val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService(), FakeWeatherLocalSource())
+        
+        val fakeLocalSource = FakeWeatherLocalSource()
+        // Save state: 3 refreshes, window started 20 minutes ago (expired)
+        fakeLocalSource.saveRefreshState(3, System.currentTimeMillis() - 20 * 60_000)
+        
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, fakeLocalSource)
+        testDispatcher.scheduler.advanceUntilIdle()
+        
+        // Even though count was 3, the window expired, so it resets, and we can refresh
+        assertTrue(viewModel.canRefresh.value)
     }
 }

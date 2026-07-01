@@ -1,7 +1,7 @@
 package com.example.weather_insights.data.location
 
 interface LocationTracker {
-    suspend fun getCurrentLocation(): LocationData?
+    suspend fun getCurrentLocation(forceRefresh: Boolean = false): LocationData?
     suspend fun getCityName(latitude: Double, longitude: Double): String?
     fun hasLocationPermission(): Boolean
 }

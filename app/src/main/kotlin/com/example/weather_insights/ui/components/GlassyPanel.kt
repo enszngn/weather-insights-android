@@ -16,7 +16,7 @@ import com.example.weather_insights.ui.theme.GlassWhite
 @Composable
 fun GlassyPanel(
     modifier: Modifier = Modifier,
-    cornerRadius: Dp = 20.dp,
+    cornerRadius: Dp = 0.dp,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(
