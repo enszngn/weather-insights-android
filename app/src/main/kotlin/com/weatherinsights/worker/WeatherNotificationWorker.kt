@@ -12,6 +12,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.weatherinsights.MainActivity
 import com.weatherinsights.data.datasource.WeatherLocalSource
+import com.weatherinsights.data.location.LocationTracker
 import com.weatherinsights.data.model.ForecastDay
 import com.weatherinsights.data.model.NotificationPreferences
 import com.weatherinsights.data.model.WeatherData
@@ -38,11 +39,12 @@ class WeatherNotificationWorker(
     interface WorkerEntryPoint {
         fun weatherRepository(): WeatherRepository
         fun localSource(): WeatherLocalSource
+        fun locationTracker(): LocationTracker
     }
 
     companion object {
-        private const val CHANNEL_CRITICAL_ID = "weather_critical_alerts"
-        private const val CHANNEL_ROUTINE_ID = "weather_routine_reports"
+        const val CHANNEL_CRITICAL_ID = "weather_critical_alerts"
+        const val CHANNEL_ROUTINE_ID = "weather_routine_reports"
         
         private const val NOTIF_ID_CRITICAL = 1001
         private const val NOTIF_ID_MORNING = 1002
@@ -50,6 +52,31 @@ class WeatherNotificationWorker(
         private const val NOTIF_ID_WEEKEND = 1004
         private const val NOTIF_ID_SHOCK = 1005
         private const val NOTIF_ID_HEALTH = 1006
+
+        fun createNotificationChannels(context: Context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val criticalChannel = NotificationChannel(
+                    CHANNEL_CRITICAL_ID,
+                    "Critical Alerts",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Severe storms, hurricanes, and imminent precipitation warnings."
+                    enableVibration(true)
+                }
+
+                val routineChannel = NotificationChannel(
+                    CHANNEL_ROUTINE_ID,
+                    "Routine Reports and Summaries",
+                    NotificationManager.IMPORTANCE_DEFAULT
+                ).apply {
+                    description = "Daily morning/evening reports, weekend summaries, and health warnings."
+                }
+
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                manager.createNotificationChannel(criticalChannel)
+                manager.createNotificationChannel(routineChannel)
+            }
+        }
     }
 
     override suspend fun doWork(): Result {
@@ -59,27 +86,45 @@ class WeatherNotificationWorker(
         )
         val repository = entryPoint.weatherRepository()
         val localSource = entryPoint.localSource()
+        val tracker = entryPoint.locationTracker()
 
         val prefs = localSource.getNotificationPreferences()
         
         // 1. Retrieve last known weather data from local source.
-        val weatherData = localSource.getCachedWeather() ?: return Result.success()
+        // If not available, attempt to query the current location and fetch fresh data.
+        var weatherData = localSource.getCachedWeather()
 
-        createNotificationChannels()
+        if (weatherData == null && tracker.hasLocationPermission()) {
+            val location = tracker.getCurrentLocation(forceRefresh = false)
+            if (location != null) {
+                val cityName = tracker.getCityName(location.latitude, location.longitude)
+                repository.fetchWeather(location.latitude, location.longitude, cityName).firstOrNull()?.onSuccess { data ->
+                    weatherData = data
+                }
+            }
+        }
 
-        val now = Calendar.getInstance()
-        val currentHour = now.get(Calendar.HOUR_OF_DAY)
-        val currentMinute = now.get(Calendar.MINUTE)
+        val data = weatherData ?: return Result.success()
 
-        val isQuietHour = checkQuietHours(currentHour, currentMinute, prefs.sleepStartTime, prefs.sleepEndTime)
+        createNotificationChannels(applicationContext)
 
-        // Evaluate and send notifications
-        evaluateCriticalAlerts(weatherData, prefs, localSource, isQuietHour)
-        evaluateMorningReport(weatherData, prefs, localSource, currentHour, currentMinute, isQuietHour)
-        evaluateEveningReport(weatherData, prefs, localSource, currentHour, currentMinute, isQuietHour)
-        evaluateWeekendSummary(weatherData, prefs, localSource, now, isQuietHour)
-        evaluateTemperatureShock(weatherData, prefs, localSource, isQuietHour)
-        evaluateHealthAlerts(weatherData, prefs, localSource, isQuietHour)
+        val reportType = inputData.getString("report_type")
+
+        if (reportType != null) {
+            when (reportType) {
+                "morning_report" -> evaluateMorningReport(data, prefs, localSource)
+                "evening_report" -> evaluateEveningReport(data, prefs, localSource)
+            }
+        } else {
+            val now = Calendar.getInstance()
+            val currentHour = now.get(Calendar.HOUR_OF_DAY)
+            val currentMinute = now.get(Calendar.MINUTE)
+            val isQuietHour = checkQuietHours(currentHour, currentMinute, prefs.sleepStartTime, prefs.sleepEndTime)
+
+            evaluateCriticalAlerts(data, prefs, localSource, isQuietHour)
+            evaluateWeekendSummary(data, prefs, localSource, now, isQuietHour)
+            evaluateTemperatureShock(data, prefs, localSource, isQuietHour)
+        }
 
         return Result.success()
     }
@@ -99,10 +144,8 @@ class WeatherNotificationWorker(
             val endVal = endParts[0] * 60 + endParts[1]
             
             if (startVal < endVal) {
-                // E.g., 22:00 to 23:59 (same day)
                 currentVal in startVal..endVal
             } else {
-                // E.g., 22:00 to 07:00 (spans midnight)
                 currentVal >= startVal || currentVal <= endVal
             }
         } catch (e: Exception) {
@@ -118,11 +161,9 @@ class WeatherNotificationWorker(
     ) {
         if (!prefs.criticalAlertsEnabled) return
 
-        // Critical alerts bypass quiet hours by default
         val todayForecast = data.forecast.firstOrNull() ?: return
         val currentHourIndex = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         
-        // Look at upcoming 3 hours
         val upcomingHours = todayForecast.hourly.filterIndexed { index, _ -> 
             index in currentHourIndex..(currentHourIndex + 2)
         }
@@ -132,7 +173,6 @@ class WeatherNotificationWorker(
 
         for (hour in upcomingHours) {
             val code = hour.weatherCode
-            // Check for severe storm / extreme weather codes
             if (code in listOf(95, 96, 99) && !stormAlertSent) {
                 val lastSent = localSource.getLastNotificationDate("critical_storm")
                 val todayStr = getTodayString()
@@ -141,14 +181,13 @@ class WeatherNotificationWorker(
                         NOTIF_ID_CRITICAL,
                         CHANNEL_CRITICAL_ID,
                         "Severe Weather Alert ⚠️",
-                        "Severe storm / thunderstorm expected at ${hour.time.substringAfter("T")}. Stay in a safe place!"
+                        "Severe storm / thunderstorm expected at ${hour.time}. Stay in a safe place!"
                     )
                     localSource.saveLastNotificationDate("critical_storm", todayStr)
                     stormAlertSent = true
                 }
             }
 
-            // Check for rain starting soon
             if (code in listOf(51, 53, 55, 61, 63, 65, 80, 81, 82) && !rainAlertSent) {
                 val lastSent = localSource.getLastNotificationDate("critical_rain")
                 val todayStr = getTodayString()
@@ -169,83 +208,61 @@ class WeatherNotificationWorker(
     private suspend fun evaluateMorningReport(
         data: WeatherData,
         prefs: NotificationPreferences,
-        localSource: WeatherLocalSource,
-        currentHour: Int,
-        currentMinute: Int,
-        isQuietHour: Boolean
+        localSource: WeatherLocalSource
     ) {
-        if (!prefs.morningReportEnabled || isQuietHour) return
+        if (!prefs.morningReportEnabled) return
 
-        val targetTime = prefs.morningReportTime.split(":")
-        if (targetTime.size != 2) return
-        val targetHour = targetTime[0].toIntOrNull() ?: 8
-        
-        if (currentHour == targetHour) {
-            val todayStr = getTodayString()
-            val lastSent = localSource.getLastNotificationDate("morning_report")
-            if (lastSent != todayStr) {
-                val todayForecast = data.forecast.firstOrNull() ?: return
-                
-                // Find high/low temps from hourly forecast
-                val temps = todayForecast.hourly.map { it.temp }
-                val maxTemp = temps.maxOrNull() ?: todayForecast.temp
-                val minTemp = temps.minOrNull() ?: todayForecast.temp
+        val todayStr = getTodayString()
+        val lastSent = localSource.getLastNotificationDate("morning_report")
+        if (lastSent != todayStr) {
+            val todayForecast = data.forecast.firstOrNull() ?: return
+            
+            val temps = todayForecast.hourly.map { it.temp }
+            val maxTemp = temps.maxOrNull() ?: todayForecast.temp
+            val minTemp = temps.minOrNull() ?: todayForecast.temp
 
-                val clothingAdvice = when {
-                    minTemp < 10.0 -> "It is quite cold today. You may want to wear a thick coat."
-                    maxTemp > 28.0 -> "It is quite hot today. You might want to wear light clothing."
-                    todayForecast.weatherCode in listOf(51, 53, 55, 61, 63, 65, 80, 81, 82) -> "Rain is expected today, remember to take your umbrella."
-                    else -> "The weather is mild and pleasant, comfortable clothes are recommended."
-                }
-
-                sendNotification(
-                    NOTIF_ID_MORNING,
-                    CHANNEL_ROUTINE_ID,
-                    "Morning Report ☀️",
-                    "Today's high ${maxTemp.roundToInt()}°, low ${minTemp.roundToInt()}°. $clothingAdvice"
-                )
-                localSource.saveLastNotificationDate("morning_report", todayStr)
+            val clothingAdvice = when {
+                minTemp < 10.0 -> "It is quite cold today. You may want to wear a thick coat."
+                maxTemp > 28.0 -> "It is quite hot today. You might want to wear light clothing."
+                todayForecast.weatherCode in listOf(51, 53, 55, 61, 63, 65, 80, 81, 82) -> "Rain is expected today, remember to take your umbrella."
+                else -> "The weather is mild and pleasant, comfortable clothes are recommended."
             }
+
+            sendNotification(
+                NOTIF_ID_MORNING,
+                CHANNEL_ROUTINE_ID,
+                "Morning Report ☀️",
+                "Today's high ${maxTemp.roundToInt()}°, low ${minTemp.roundToInt()}°. $clothingAdvice"
+            )
+            localSource.saveLastNotificationDate("morning_report", todayStr)
         }
     }
 
     private suspend fun evaluateEveningReport(
         data: WeatherData,
         prefs: NotificationPreferences,
-        localSource: WeatherLocalSource,
-        currentHour: Int,
-        currentMinute: Int,
-        isQuietHour: Boolean
+        localSource: WeatherLocalSource
     ) {
-        if (!prefs.eveningReportEnabled || isQuietHour) return
+        if (!prefs.eveningReportEnabled) return
 
-        val targetTime = prefs.eveningReportTime.split(":")
-        if (targetTime.size != 2) return
-        val targetHour = targetTime[0].toIntOrNull() ?: 20
+        val todayStr = getTodayString()
+        val lastSent = localSource.getLastNotificationDate("evening_report")
+        if (lastSent != todayStr) {
+            val tomorrowForecast = data.forecast.getOrNull(1) ?: return
+            val temps = tomorrowForecast.hourly.map { it.temp }
+            val maxTemp = temps.maxOrNull() ?: tomorrowForecast.temp
+            val minTemp = temps.minOrNull() ?: tomorrowForecast.temp
 
-        if (currentHour == targetHour) {
-            val todayStr = getTodayString()
-            val lastSent = localSource.getLastNotificationDate("evening_report")
-            if (lastSent != todayStr) {
-                // Retrieve tomorrow's forecast (day index 1)
-                val tomorrowForecast = data.forecast.getOrNull(1) ?: return
-                val weatherCode = tomorrowForecast.weatherCode
-                
-                val summary = when {
-                    weatherCode in listOf(95, 96, 99) -> "A severe storm is expected tomorrow. You may want to postpone outdoor plans."
-                    weatherCode in listOf(45, 48) -> "Heavy fog is expected tomorrow morning. You may want to leave for work a bit early."
-                    weatherCode in listOf(51, 53, 55, 61, 63, 65, 80, 81, 82) -> "Rain is expected all day tomorrow, prepare your umbrella."
-                    else -> "Tomorrow's weather looks calm and pleasant. Have a great day!"
-                }
+            val rainExpected = tomorrowForecast.hourly.any { it.weatherCode in listOf(51, 53, 55, 61, 63, 65, 80, 81, 82) }
+            val rainAdvice = if (rainExpected) " Tomorrow will be rainy." else " No rain is expected tomorrow."
 
-                sendNotification(
-                    NOTIF_ID_EVENING,
-                    CHANNEL_ROUTINE_ID,
-                    "Evening Report 🌙",
-                    "Tomorrow's high ${tomorrowForecast.temp.roundToInt()}°. $summary"
-                )
-                localSource.saveLastNotificationDate("evening_report", todayStr)
-            }
+            sendNotification(
+                NOTIF_ID_EVENING,
+                CHANNEL_ROUTINE_ID,
+                "Evening Report 🌙",
+                "Tomorrow's high ${maxTemp.roundToInt()}°, low ${minTemp.roundToInt()}°.$rainAdvice"
+            )
+            localSource.saveLastNotificationDate("evening_report", todayStr)
         }
     }
 
@@ -321,64 +338,6 @@ class WeatherNotificationWorker(
         }
     }
 
-    private suspend fun evaluateHealthAlerts(
-        data: WeatherData,
-        prefs: NotificationPreferences,
-        localSource: WeatherLocalSource,
-        isQuietHour: Boolean
-    ) {
-        if (!prefs.healthAlertsEnabled || isQuietHour) return
-
-        val today = data.forecast.firstOrNull() ?: return
-        val todayStr = getTodayString()
-
-        // 1. UV Alert
-        if (today.uvIndex >= 6.0) {
-            val lastSent = localSource.getLastNotificationDate("health_uv")
-            if (lastSent != todayStr) {
-                sendNotification(
-                    NOTIF_ID_HEALTH,
-                    CHANNEL_ROUTINE_ID,
-                    "Health Alert ☀️",
-                    "UV index is very high today (${today.uvIndex.roundToInt()}). Don't forget sunscreen and try to stay out of direct sun!"
-                )
-                localSource.saveLastNotificationDate("health_uv", todayStr)
-                return
-            }
-        }
-
-        // 2. Pollen Alert Simulation
-        val calendar = Calendar.getInstance()
-        val month = calendar.get(Calendar.MONTH)
-        if (month in 3..7 && today.temp > 20.0 && today.humidity < 60 && today.windSpeed > 15.0) {
-            val lastSent = localSource.getLastNotificationDate("health_pollen")
-            if (lastSent != todayStr) {
-                sendNotification(
-                    NOTIF_ID_HEALTH,
-                    CHANNEL_ROUTINE_ID,
-                    "Allergy Alert 🌸",
-                    "Pollen levels look very high today. Take precautions if you have pollen allergies!"
-                )
-                localSource.saveLastNotificationDate("health_pollen", todayStr)
-                return
-            }
-        }
-
-        // 3. AQI Alert Simulation
-        if (today.temp > 32.0 && today.humidity > 70 && today.windSpeed < 6.0) {
-            val lastSent = localSource.getLastNotificationDate("health_aqi")
-            if (lastSent != todayStr) {
-                sendNotification(
-                    NOTIF_ID_HEALTH,
-                    CHANNEL_ROUTINE_ID,
-                    "Air Quality Alert 🌫️",
-                    "Air quality (AQI) may reach unhealthy levels for sensitive groups today. Consider limiting outdoor activities."
-                )
-                localSource.saveLastNotificationDate("health_aqi", todayStr)
-            }
-        }
-    }
-
     private fun sendNotification(
         notificationId: Int,
         channelId: String,
@@ -415,31 +374,6 @@ class WeatherNotificationWorker(
             notificationManager.notify(notificationId, builder.build())
         } catch (e: SecurityException) {
             // Missing POST_NOTIFICATIONS permission
-        }
-    }
-
-    private fun createNotificationChannels() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val criticalChannel = NotificationChannel(
-                CHANNEL_CRITICAL_ID,
-                "Critical Alerts",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Severe storms, hurricanes, and imminent precipitation warnings."
-                enableVibration(true)
-            }
-
-            val routineChannel = NotificationChannel(
-                CHANNEL_ROUTINE_ID,
-                "Routine Reports and Summaries",
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = "Daily morning/evening reports, weekend summaries, and health warnings."
-            }
-
-            val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(criticalChannel)
-            manager.createNotificationChannel(routineChannel)
         }
     }
 

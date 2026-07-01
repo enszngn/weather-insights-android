@@ -1,7 +1,10 @@
 package com.weatherinsights.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,17 +16,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AccessTime
-import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.NotificationsActive
-import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,25 +33,27 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.weatherinsights.data.model.NotificationPreferences
 import com.weatherinsights.ui.components.GlassyPanel
 import com.weatherinsights.ui.theme.TextPrimary
 import com.weatherinsights.ui.theme.TextSecondary
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     preferences: NotificationPreferences,
@@ -57,7 +61,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showTimePickerDialogFor by remember { mutableStateOf<TimePickerTarget?>(null) }
+    var activeTimePickerFor by remember { mutableStateOf<TimePickerTarget?>(null) }
 
     Column(
         modifier = modifier
@@ -133,7 +137,7 @@ fun SettingsScreen(
                     TimeConfigurationRow(
                         label = "Report Time",
                         time = preferences.morningReportTime,
-                        onClick = { showTimePickerDialogFor = TimePickerTarget.MorningReport }
+                        onClick = { activeTimePickerFor = TimePickerTarget.MorningReport }
                     )
                 }
 
@@ -151,7 +155,7 @@ fun SettingsScreen(
                     TimeConfigurationRow(
                         label = "Report Time",
                         time = preferences.eveningReportTime,
-                        onClick = { showTimePickerDialogFor = TimePickerTarget.EveningReport }
+                        onClick = { activeTimePickerFor = TimePickerTarget.EveningReport }
                     )
                 }
             }
@@ -188,17 +192,6 @@ fun SettingsScreen(
                         onPreferencesChanged(preferences.copy(tempShockEnabled = it))
                     }
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                NotificationToggleRow(
-                    title = "Health and Allergy Alerts",
-                    subtitle = "Alerts when pollen levels, air quality (AQI), or UV index are high.",
-                    checked = preferences.healthAlertsEnabled,
-                    onCheckedChange = {
-                        onPreferencesChanged(preferences.copy(healthAlertsEnabled = it))
-                    }
-                )
             }
         }
 
@@ -227,7 +220,7 @@ fun SettingsScreen(
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .clickable { showTimePickerDialogFor = TimePickerTarget.SleepStart }
+                            .clickable { activeTimePickerFor = TimePickerTarget.SleepStart }
                             .padding(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -242,7 +235,7 @@ fun SettingsScreen(
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .clickable { showTimePickerDialogFor = TimePickerTarget.SleepEnd }
+                            .clickable { activeTimePickerFor = TimePickerTarget.SleepEnd }
                             .padding(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -259,65 +252,34 @@ fun SettingsScreen(
         }
     }
 
-    // Time Picker Dialog
-    if (showTimePickerDialogFor != null) {
-        val currentTarget = showTimePickerDialogFor!!
-        val initialTimeString = when (currentTarget) {
+    // iOS-Style Openable Wheel Time Picker Window
+    if (activeTimePickerFor != null) {
+        val currentTarget = activeTimePickerFor!!
+        val initialTime = when (currentTarget) {
             TimePickerTarget.MorningReport -> preferences.morningReportTime
             TimePickerTarget.EveningReport -> preferences.eveningReportTime
             TimePickerTarget.SleepStart -> preferences.sleepStartTime
             TimePickerTarget.SleepEnd -> preferences.sleepEndTime
         }
-        val parts = initialTimeString.split(":")
-        val initialHour = parts.getOrNull(0)?.toIntOrNull() ?: 12
-        val initialMinute = parts.getOrNull(1)?.toIntOrNull() ?: 0
-
-        val timePickerState = rememberTimePickerState(
-            initialHour = initialHour,
-            initialMinute = initialMinute,
-            is24Hour = true
-        )
-
-        AlertDialog(
-            onDismissRequest = { showTimePickerDialogFor = null },
-            confirmButton = {
-                TextButton(onClick = {
-                    val formattedTime = String.format(
-                        "%02d:%02d",
-                        timePickerState.hour,
-                        timePickerState.minute
-                    )
-                    val updatedPrefs = when (currentTarget) {
-                        TimePickerTarget.MorningReport -> preferences.copy(morningReportTime = formattedTime)
-                        TimePickerTarget.EveningReport -> preferences.copy(eveningReportTime = formattedTime)
-                        TimePickerTarget.SleepStart -> preferences.copy(sleepStartTime = formattedTime)
-                        TimePickerTarget.SleepEnd -> preferences.copy(sleepEndTime = formattedTime)
-                    }
-                    onPreferencesChanged(updatedPrefs)
-                    showTimePickerDialogFor = null
-                }) {
-                    Text("OK", color = MaterialTheme.colorScheme.primary)
+        
+        WheelTimePickerDialog(
+            title = when (currentTarget) {
+                TimePickerTarget.MorningReport -> "Morning Report Time"
+                TimePickerTarget.EveningReport -> "Evening Report Time"
+                TimePickerTarget.SleepStart -> "Quiet Hours Start"
+                TimePickerTarget.SleepEnd -> "Quiet Hours End"
+            },
+            initialTime = initialTime,
+            onDismiss = { activeTimePickerFor = null },
+            onConfirm = { selectedTime ->
+                val updatedPrefs = when (currentTarget) {
+                    TimePickerTarget.MorningReport -> preferences.copy(morningReportTime = selectedTime)
+                    TimePickerTarget.EveningReport -> preferences.copy(eveningReportTime = selectedTime)
+                    TimePickerTarget.SleepStart -> preferences.copy(sleepStartTime = selectedTime)
+                    TimePickerTarget.SleepEnd -> preferences.copy(sleepEndTime = selectedTime)
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTimePickerDialogFor = null }) {
-                    Text("Cancel", color = MaterialTheme.colorScheme.outline)
-                }
-            },
-            title = {
-                Text(
-                    text = when (currentTarget) {
-                        TimePickerTarget.MorningReport -> "Select Morning Report Time"
-                        TimePickerTarget.EveningReport -> "Select Evening Report Time"
-                        TimePickerTarget.SleepStart -> "Select Quiet Hours Start"
-                        TimePickerTarget.SleepEnd -> "Select Quiet Hours End"
-                    },
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                TimePicker(state = timePickerState)
+                onPreferencesChanged(updatedPrefs)
+                activeTimePickerFor = null
             }
         )
     }
@@ -358,9 +320,10 @@ fun NotificationToggleRow(
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = Color(0x99009AFF),
+                checkedTrackColor = Color(0xFF34C759),     // Green when on
                 uncheckedThumbColor = Color.LightGray,
-                uncheckedTrackColor = Color(0x33FFFFFF)
+                uncheckedTrackColor = Color.White,
+                uncheckedBorderColor = Color.LightGray
             )
         )
     }
@@ -400,6 +363,155 @@ fun TimeConfigurationRow(
             fontWeight = FontWeight.Bold,
             color = TextPrimary
         )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun VerticalWheelPicker(
+    value: Int,
+    range: IntRange,
+    onValueChange: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    itemHeight: Dp = 48.dp
+) {
+    val items = range.toList()
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = items.indexOf(value))
+    val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
+
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (!listState.isScrollInProgress) {
+            val centerIndex = listState.firstVisibleItemIndex
+            val selectedVal = items.getOrNull(centerIndex) ?: value
+            if (selectedVal != value) {
+                onValueChange(selectedVal)
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier.height(itemHeight * 3),
+        contentAlignment = Alignment.Center
+    ) {
+        // Highlighting center area
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(itemHeight)
+                .background(Color(0x26FFFFFF))
+                .border(1.dp, Color(0x33FFFFFF))
+        )
+
+        LazyColumn(
+            state = listState,
+            flingBehavior = flingBehavior,
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item { Spacer(modifier = Modifier.height(itemHeight)) }
+            items(items.size) { index ->
+                val itemVal = items[index]
+                Box(
+                    modifier = Modifier
+                        .height(itemHeight)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = String.format("%02d", itemVal),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                }
+            }
+            item { Spacer(modifier = Modifier.height(itemHeight)) }
+        }
+    }
+}
+
+@Composable
+fun WheelTimePickerDialog(
+    title: String,
+    initialTime: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    val parts = initialTime.split(":")
+    var selectedHour by remember { mutableStateOf(parts.getOrNull(0)?.toIntOrNull() ?: 12) }
+    var selectedMinute by remember { mutableStateOf(parts.getOrNull(1)?.toIntOrNull() ?: 0) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .width(280.dp)
+                .clip(RoundedCornerShape(0.dp)) // Maintain sharp corners styling
+                .background(Color(0xEE1E1E1E))   // Dark background for picker modal
+                .border(1.dp, Color(0x66FFFFFF), RoundedCornerShape(0.dp))
+                .padding(24.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Start
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    VerticalWheelPicker(
+                        value = selectedHour,
+                        range = 0..23,
+                        onValueChange = { selectedHour = it },
+                        modifier = Modifier.width(60.dp)
+                    )
+                    
+                    Text(
+                        text = ":",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    
+                    VerticalWheelPicker(
+                        value = selectedMinute,
+                        range = 0..59,
+                        onValueChange = { selectedMinute = it },
+                        modifier = Modifier.width(60.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel", color = TextSecondary)
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    TextButton(
+                        onClick = {
+                            onConfirm(String.format("%02d:%02d", selectedHour, selectedMinute))
+                        }
+                    ) {
+                        Text("Save", color = TextPrimary, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
     }
 }
 

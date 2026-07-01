@@ -241,9 +241,35 @@ Implement push notifications with user-configurable times inside the app, catego
   - All 12 unit tests pass successfully.
 - **English Localization**:
   - Translated all UI labels, options, time selection dialogs, and notification channel/content messages in [`SettingsScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/SettingsScreen.kt) and [`WeatherNotificationWorker.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/worker/WeatherNotificationWorker.kt) from Turkish to English to comply with the project's language guidelines.
+- **UI Customizations**:
+  - Changed switch active track background color from blue to a dark grey (`Color(0xFF4F4F4F)`).
+  - Implemented iOS-style vertical wheel pickers for hour and minute selections inside a dialog window popup ([`SettingsScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/SettingsScreen.kt)) to customize report delivery times and quiet/sleep hours.
+- **Background Notification & Testing Improvements**:
+  - **Immediate Channel Registration**: Exposes and registers notification channels inside `MainActivity.onCreate()` rather than delaying until the first worker execution.
+  - **Dynamic Weather Fetch**: If local cached weather is empty (e.g., on first launch), the background worker queries last known location coordinates and fetches fresh weather directly from the repository.
+  - **Reschedule on Startup**: Changed periodic work policy to `ExistingPeriodicWorkPolicy.REPLACE` in `MainActivity` to update the background task configuration and run it immediately on fresh builds.
+  - **"Send Test Notification" Debug Tool**: Added a prominent button in the settings page to immediately post a sample weather notification, confirming that channel priorities and posting permissions are fully operational.
+  - **Compilation & Decoupled Architectural Fix**:
+    - Removed `Context` and notification-related logic from [`WeatherViewModel.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/viewmodel/WeatherViewModel.kt) to restore clean architectural separation.
+    - Implemented the `sendTestNotification()` logic directly within [`MainActivity.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/MainActivity.kt) where `Context` is natively available.
+    - Updated [`HomeScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/HomeScreen.kt) to accept `onSendTestNotification` and pass it to `SettingsScreen`.
+    - Reverted test parameters inside [`WeatherViewModelTest.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/weatherinsights/WeatherViewModelTest.kt) by deleting invalid `mockContext` parameters.
+    - Cleared build caches via `./gradlew clean` and verified all project builds and unit tests pass successfully.
+- **HomeScreen Test Notification Button**:
+  - Added a temporary test notification icon button (`Icons.Rounded.NotificationsActive`) in the header `Row` of [`WeatherTimeline.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/components/WeatherTimeline.kt).
+  - Wired this button callback parameter through [`HomeScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/HomeScreen.kt) to [`MainActivity.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/MainActivity.kt)'s `sendTestNotification()` implementation.
 
-
-
-
-
-
+## Phase 7: Exact Alarm Scheduling & Health Alerts Removal
+- **Permission & Declarations**:
+  - Declared `android.permission.SCHEDULE_EXACT_ALARM` in [`AndroidManifest.xml`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/AndroidManifest.xml).
+  - Registered [`WeatherNotificationReceiver`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/receiver/WeatherNotificationReceiver.kt) as a broadcast receiver in [`AndroidManifest.xml`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/AndroidManifest.xml).
+- **Alarms Scheduling System**:
+  - Created [`AlarmScheduler.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/receiver/AlarmScheduler.kt) helper utility to set or cancel exact wakeup alarms via Android's `AlarmManager`.
+  - Created [`WeatherNotificationReceiver.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/receiver/WeatherNotificationReceiver.kt) to receive alarms, execute immediate one-time WorkManager reports via `WeatherNotificationWorker`, and schedule the next alarm for the following day.
+- **Worker Refactoring**:
+  - Updated [`WeatherNotificationWorker.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/worker/WeatherNotificationWorker.kt) to distinguish direct report triggers (evaluates only morning/evening report when requested via AlarmManager input data) from periodic runs (only handles critical alerts and caching updates).
+- **Preferences & UI Cleanups**:
+  - Deleted `healthAlertsEnabled` preference option from [`NotificationPreferences.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/data/model/NotificationPreferences.kt).
+  - Removed "Health and Allergy Alerts" toggle row completely from [`SettingsScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/SettingsScreen.kt).
+  - Integrated dynamic alarm scheduling inside [`MainActivity.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/MainActivity.kt)'s preferences change observer `LaunchedEffect`.
+  - Ran build caches clean up and verified all test suites compile and pass successfully.

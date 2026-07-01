@@ -34,7 +34,13 @@ This file tracks the real-time progress of tasks. AI Agents must update this fil
 - [x] Feature: Request POST_NOTIFICATIONS permission in MainActivity
 - [x] Feature: Write unit tests for notification preferences and worker logic
 - [x] Verification: Test notification scheduling and verify layout visual quality
-
-
-
-
+- [x] Bugfix: Decouple WeatherViewModel from Context & fix test notification build compilation
+- [x] Feature: Temporary test notification button in the Home screen header
+- [x] Phase 7.1: Add SCHEDULE_EXACT_ALARM permission and receiver to AndroidManifest.xml
+- [x] Phase 7.2: Remove healthAlertsEnabled from NotificationPreferences.kt
+- [x] Phase 7.3: Create AlarmScheduler.kt to handle exact alarms
+- [x] Phase 7.4: Create WeatherNotificationReceiver.kt to receive alarm triggers
+- [x] Phase 7.5: Refactor WeatherNotificationWorker.kt for direct report execution and health removal
+- [x] Phase 7.6: Remove health alerts toggle from SettingsScreen.kt
+- [x] Phase 7.7: Integrate AlarmScheduler in MainActivity.kt and WeatherViewModel.kt
+- [x] Phase 7.8: Update WeatherViewModelTest.kt and verify all tests pass
