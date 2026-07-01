@@ -12,6 +12,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -65,7 +66,7 @@ class DataStoreWeatherLocalSource @Inject constructor(
 
     override suspend fun saveWeatherToCache(data: WeatherData) {
         try {
-            val jsonString = json.encodeToString(WeatherData.serializer(), data)
+            val jsonString = json.encodeToString(data)
             context.dataStore.edit { preferences ->
                 preferences[CACHED_WEATHER_KEY] = jsonString
             }
@@ -115,7 +116,7 @@ class DataStoreWeatherLocalSource @Inject constructor(
 
     override suspend fun saveNotificationPreferences(prefs: NotificationPreferences) {
         try {
-            val jsonString = json.encodeToString(NotificationPreferences.serializer(), prefs)
+            val jsonString = json.encodeToString(prefs)
             context.dataStore.edit { preferences ->
                 preferences[NOTIFICATION_PREFS_KEY] = jsonString
             }

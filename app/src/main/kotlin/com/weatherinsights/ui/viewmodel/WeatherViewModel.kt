@@ -7,7 +7,6 @@ import com.weatherinsights.data.location.LocationTracker
 import com.weatherinsights.data.model.NotificationPreferences
 import com.weatherinsights.data.model.WeatherData
 import com.weatherinsights.data.repository.WeatherRepository
-import com.weatherinsights.ui.viewmodel.WeatherUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

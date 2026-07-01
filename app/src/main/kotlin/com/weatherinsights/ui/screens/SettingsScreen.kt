@@ -286,7 +286,7 @@ fun SettingsScreen(
 }
 
 @Composable
-fun NotificationToggleRow(
+private fun NotificationToggleRow(
     title: String,
     subtitle: String,
     checked: Boolean,
@@ -330,7 +330,7 @@ fun NotificationToggleRow(
 }
 
 @Composable
-fun TimeConfigurationRow(
+private fun TimeConfigurationRow(
     label: String,
     time: String,
     onClick: () -> Unit
@@ -368,7 +368,7 @@ fun TimeConfigurationRow(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun VerticalWheelPicker(
+private fun VerticalWheelPicker(
     value: Int,
     range: IntRange,
     onValueChange: (Int) -> Unit,
@@ -431,15 +431,15 @@ fun VerticalWheelPicker(
 }
 
 @Composable
-fun WheelTimePickerDialog(
+private fun WheelTimePickerDialog(
     title: String,
     initialTime: String,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
-    val parts = initialTime.split(":")
-    var selectedHour by remember { mutableStateOf(parts.getOrNull(0)?.toIntOrNull() ?: 12) }
-    var selectedMinute by remember { mutableStateOf(parts.getOrNull(1)?.toIntOrNull() ?: 0) }
+    val timePair = com.weatherinsights.data.util.TimeUtils.parseTimeToHourMinute(initialTime)
+    var selectedHour by remember { mutableStateOf(timePair?.first ?: 12) }
+    var selectedMinute by remember { mutableStateOf(timePair?.second ?: 0) }
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -515,7 +515,7 @@ fun WheelTimePickerDialog(
     }
 }
 
-enum class TimePickerTarget {
+private enum class TimePickerTarget {
     MorningReport,
     EveningReport,
     SleepStart,

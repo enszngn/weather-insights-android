@@ -57,60 +57,12 @@ class MainActivity : ComponentActivity() {
                 }
 
                 LaunchedEffect(Unit) {
-                    val permissions = mutableListOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-                    }
-                    permissionLauncher.launch(permissions.toTypedArray())
+                    permissionLauncher.launch(buildRequiredPermissions())
                     scheduleWeatherNotificationWorker()
                 }
 
                 LaunchedEffect(notificationPrefs) {
-                    val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                    val needsExactAlarm = notificationPrefs.morningReportEnabled ||
-                            notificationPrefs.eveningReportEnabled
-
-                    // On API 31+, SCHEDULE_EXACT_ALARM must be explicitly granted by the user.
-                    // If any report is enabled but the permission is missing, open the system
-                    // settings page so the user can grant it. Alarms will be scheduled in onResume.
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                        needsExactAlarm && !alarmManager.canScheduleExactAlarms()
-                    ) {
-                        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                            data = Uri.parse("package:$packageName")
-                        }
-                        startActivity(intent)
-                        return@LaunchedEffect
-                    }
-
-                    if (notificationPrefs.morningReportEnabled) {
-                        AlarmScheduler.scheduleReportAlarm(
-                            applicationContext,
-                            AlarmScheduler.REPORT_MORNING,
-                            notificationPrefs.morningReportTime
-                        )
-                    } else {
-                        AlarmScheduler.cancelReportAlarm(
-                            applicationContext,
-                            AlarmScheduler.REPORT_MORNING
-                        )
-                    }
-
-                    if (notificationPrefs.eveningReportEnabled) {
-                        AlarmScheduler.scheduleReportAlarm(
-                            applicationContext,
-                            AlarmScheduler.REPORT_EVENING,
-                            notificationPrefs.eveningReportTime
-                        )
-                    } else {
-                        AlarmScheduler.cancelReportAlarm(
-                            applicationContext,
-                            AlarmScheduler.REPORT_EVENING
-                        )
-                    }
+                    syncAlarms(notificationPrefs)
                 }
 
                 Surface(
@@ -123,14 +75,7 @@ class MainActivity : ComponentActivity() {
                             viewModel.updateNotificationPreferences(updated)
                         },
                         onRequestPermission = {
-                            val permissions = mutableListOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                            )
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-                            }
-                            permissionLauncher.launch(permissions.toTypedArray())
+                            permissionLauncher.launch(buildRequiredPermissions())
                         },
                         onRetry = {
                             viewModel.loadWeather()
@@ -146,33 +91,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Re-schedules alarms when returning from the SCHEDULE_EXACT_ALARM settings page.
-     * The user may have just granted the permission, so we attempt to set alarms again
-     * using the preferences already loaded in the ViewModel.
-     */
     override fun onResume() {
         super.onResume()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            if (alarmManager.canScheduleExactAlarms()) {
-                val prefs = viewModel.notificationPreferences.value
-                if (prefs.morningReportEnabled) {
-                    AlarmScheduler.scheduleReportAlarm(
-                        applicationContext,
-                        AlarmScheduler.REPORT_MORNING,
-                        prefs.morningReportTime
-                    )
-                }
-                if (prefs.eveningReportEnabled) {
-                    AlarmScheduler.scheduleReportAlarm(
-                        applicationContext,
-                        AlarmScheduler.REPORT_EVENING,
-                        prefs.eveningReportTime
-                    )
-                }
-            }
-        }
+        syncAlarms(viewModel.notificationPreferences.value)
     }
 
 
@@ -185,5 +106,54 @@ class MainActivity : ComponentActivity() {
             ExistingPeriodicWorkPolicy.KEEP,
             workRequest
         )
+    }
+
+    private fun buildRequiredPermissions(): Array<String> = buildList {
+        add(Manifest.permission.ACCESS_FINE_LOCATION)
+        add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }.toTypedArray()
+
+    private fun syncAlarms(prefs: com.weatherinsights.data.model.NotificationPreferences) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val needsExactAlarm = prefs.morningReportEnabled || prefs.eveningReportEnabled
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            needsExactAlarm && !alarmManager.canScheduleExactAlarms()
+        ) {
+            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                data = Uri.parse("package:$packageName")
+            }
+            startActivity(intent)
+            return
+        }
+
+        if (prefs.morningReportEnabled) {
+            AlarmScheduler.scheduleReportAlarm(
+                applicationContext,
+                AlarmScheduler.REPORT_MORNING,
+                prefs.morningReportTime
+            )
+        } else {
+            AlarmScheduler.cancelReportAlarm(
+                applicationContext,
+                AlarmScheduler.REPORT_MORNING
+            )
+        }
+
+        if (prefs.eveningReportEnabled) {
+            AlarmScheduler.scheduleReportAlarm(
+                applicationContext,
+                AlarmScheduler.REPORT_EVENING,
+                prefs.eveningReportTime
+            )
+        } else {
+            AlarmScheduler.cancelReportAlarm(
+                applicationContext,
+                AlarmScheduler.REPORT_EVENING
+            )
+        }
     }
 }

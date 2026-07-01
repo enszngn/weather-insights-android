@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import com.weatherinsights.data.model.TimelineEntry
 import com.weatherinsights.data.model.WeatherData
 import com.weatherinsights.ui.theme.TextPrimary
+import com.weatherinsights.ui.util.WeatherMapper
 import kotlin.math.roundToInt
 
 /**
@@ -61,7 +62,7 @@ internal fun WeatherContent(
     val currentTemp = currentDay?.temp ?: 0.0
     val currentWindSpeed = currentDay?.windSpeed ?: 0.0
 
-    val currentHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    val currentHour = java.time.LocalTime.now().hour
     val finalTimeline = buildTimeline(weatherData, currentHour)
 
     Column(
@@ -221,17 +222,17 @@ private fun buildTimeline(weatherData: WeatherData, currentHour: Int): List<Time
     // Compute absolute hour positions for sunset/sunrise events
     val sunsets = weatherData.forecast.take(2).mapIndexedNotNull { dayIdx, forecastDay ->
         forecastDay.sunset?.let { timeStr ->
-            val parts = timeStr.split(":")
-            val h = parts.getOrNull(0)?.toIntOrNull() ?: 20
-            val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            val time = com.weatherinsights.data.util.TimeUtils.parseTimeToHourMinute(timeStr)
+            val h = time?.first ?: 20
+            val m = time?.second ?: 0
             (dayIdx * 24 + h + m / 60.0) to timeStr
         }
     }
     val sunrises = weatherData.forecast.take(2).mapIndexedNotNull { dayIdx, forecastDay ->
         forecastDay.sunrise?.let { timeStr ->
-            val parts = timeStr.split(":")
-            val h = parts.getOrNull(0)?.toIntOrNull() ?: 5
-            val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            val time = com.weatherinsights.data.util.TimeUtils.parseTimeToHourMinute(timeStr)
+            val h = time?.first ?: 5
+            val m = time?.second ?: 0
             (dayIdx * 24 + h + m / 60.0) to timeStr
         }
     }

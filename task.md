@@ -44,3 +44,9 @@ This file tracks the real-time progress of tasks. AI Agents must update this fil
 - [x] Phase 7.6: Remove health alerts toggle from SettingsScreen.kt
 - [x] Phase 7.7: Integrate AlarmScheduler in MainActivity.kt and WeatherViewModel.kt
 - [x] Phase 7.8: Update WeatherViewModelTest.kt and verify all tests pass
+
+- [x] Phase 8.1: Group A - Safe Deletions (#4, #5, #7, #8, #12, #16)
+- [x] Phase 8.2: Group B - Extractions (#1, #2, #10)
+- [x] Phase 8.3: Group C - Fix bad patterns (#3, #9, #11, #13, #14, #15)
+- [x] Phase 8.4: Group D - Move/restructure (#6)
+- [x] Phase 8.5: Group E - Visibility/access tightening (#17)

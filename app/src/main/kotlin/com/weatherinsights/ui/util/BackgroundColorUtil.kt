@@ -13,9 +13,9 @@ import kotlin.math.abs
  * midnight blue (#001533) at midnight, creating a natural day/night gradient.
  */
 fun getDynamicBackgroundColor(uiState: WeatherUiState): Color {
-    val calendar = java.util.Calendar.getInstance()
-    val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
-    val minute = calendar.get(java.util.Calendar.MINUTE)
+    val now = java.time.LocalTime.now()
+    val hour = now.hour
+    val minute = now.minute
     val currentAbsoluteHour = hour + (minute / 60.0)
 
     val (sunrise, sunset) = when (uiState) {

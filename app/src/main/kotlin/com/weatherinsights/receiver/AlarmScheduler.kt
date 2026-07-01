@@ -14,17 +14,18 @@ object AlarmScheduler {
     const val REPORT_MORNING = "morning_report"
     const val REPORT_EVENING = "evening_report"
 
-    private fun getRequestCode(reportType: String): Int {
-        return if (reportType == REPORT_MORNING) 2001 else 2002
+    private fun getRequestCode(reportType: String): Int = when (reportType) {
+        REPORT_MORNING -> 2001
+        REPORT_EVENING -> 2002
+        else -> error("Unknown report type: $reportType")
     }
 
     fun scheduleReportAlarm(context: Context, reportType: String, timeString: String) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         
-        val parts = timeString.split(":")
-        if (parts.size != 2) return
-        val hour = parts[0].toIntOrNull() ?: return
-        val minute = parts[1].toIntOrNull() ?: return
+        val timePair = com.weatherinsights.data.util.TimeUtils.parseTimeToHourMinute(timeString) ?: return
+        val hour = timePair.first
+        val minute = timePair.second
 
         val intent = Intent(context, WeatherNotificationReceiver::class.java).apply {
             action = ACTION_TRIGGER_REPORT

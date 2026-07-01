@@ -51,7 +51,6 @@ class WeatherNotificationWorker(
         private const val NOTIF_ID_EVENING = 1003
         private const val NOTIF_ID_WEEKEND = 1004
         private const val NOTIF_ID_SHOCK = 1005
-        private const val NOTIF_ID_HEALTH = 1006
 
         fun createNotificationChannels(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -90,19 +89,7 @@ class WeatherNotificationWorker(
 
         val prefs = localSource.getNotificationPreferences()
         
-        // 1. Retrieve last known weather data from local source.
-        // If not available, attempt to query the current location and fetch fresh data.
-        var weatherData = localSource.getCachedWeather()
-
-        if (weatherData == null && tracker.hasLocationPermission()) {
-            val location = tracker.getCurrentLocation(forceRefresh = false)
-            if (location != null) {
-                val cityName = tracker.getCityName(location.latitude, location.longitude)
-                repository.fetchWeather(location.latitude, location.longitude, cityName).firstOrNull()?.onSuccess { data ->
-                    weatherData = data
-                }
-            }
-        }
+        val weatherData = resolveWeatherData(localSource, repository, tracker)
 
         val data = weatherData ?: return Result.success()
 
@@ -129,27 +116,39 @@ class WeatherNotificationWorker(
         return Result.success()
     }
 
+    private suspend fun resolveWeatherData(
+        localSource: WeatherLocalSource,
+        repository: WeatherRepository,
+        tracker: LocationTracker
+    ): WeatherData? {
+        var weatherData = localSource.getCachedWeather()
+
+        if (weatherData == null && tracker.hasLocationPermission()) {
+            val location = tracker.getCurrentLocation(forceRefresh = false)
+            if (location != null) {
+                val cityName = tracker.getCityName(location.latitude, location.longitude)
+                repository.fetchWeather(location.latitude, location.longitude, cityName).firstOrNull()?.onSuccess { data ->
+                    weatherData = data
+                }
+            }
+        }
+        return weatherData
+    }
+
     private fun checkQuietHours(
         currentHour: Int,
         currentMinute: Int,
         startTime: String,
         endTime: String
     ): Boolean {
-        return try {
-            val startParts = startTime.split(":").map { it.toInt() }
-            val endParts = endTime.split(":").map { it.toInt() }
-            
-            val currentVal = currentHour * 60 + currentMinute
-            val startVal = startParts[0] * 60 + startParts[1]
-            val endVal = endParts[0] * 60 + endParts[1]
-            
-            if (startVal < endVal) {
-                currentVal in startVal..endVal
-            } else {
-                currentVal >= startVal || currentVal <= endVal
-            }
-        } catch (e: Exception) {
-            false
+        val startVal = com.weatherinsights.data.util.TimeUtils.parseTimeToMinutes(startTime) ?: return false
+        val endVal = com.weatherinsights.data.util.TimeUtils.parseTimeToMinutes(endTime) ?: return false
+        val currentVal = currentHour * 60 + currentMinute
+        
+        return if (startVal < endVal) {
+            currentVal in startVal..endVal
+        } else {
+            currentVal >= startVal || currentVal <= endVal
         }
     }
 

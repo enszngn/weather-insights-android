@@ -12,6 +12,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import com.weatherinsights.BuildConfig
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -27,6 +28,8 @@ annotation class OpenMeteoRetrofit
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
+    private val JSON_MEDIA_TYPE = "application/json".toMediaType()
+
     @Provides
     @Singleton
     fun provideJson(): Json = Json {
@@ -39,7 +42,8 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (com.weatherinsights.BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+                    else HttpLoggingInterceptor.Level.NONE
         }
         return OkHttpClient.Builder()
             .addInterceptor(logging)
@@ -50,11 +54,10 @@ object NetworkModule {
     @Singleton
     @WorkerRetrofit
     fun provideWorkerRetrofit(okHttpClient: OkHttpClient, json: Json): Retrofit {
-        val contentType = "application/json".toMediaType()
         return Retrofit.Builder()
             .baseUrl("https://weather-insights.eneszengin542.workers.dev/")
             .client(okHttpClient)
-            .addConverterFactory(json.asConverterFactory(contentType))
+            .addConverterFactory(json.asConverterFactory(JSON_MEDIA_TYPE))
             .build()
     }
 
@@ -62,11 +65,10 @@ object NetworkModule {
     @Singleton
     @OpenMeteoRetrofit
     fun provideOpenMeteoRetrofit(okHttpClient: OkHttpClient, json: Json): Retrofit {
-        val contentType = "application/json".toMediaType()
         return Retrofit.Builder()
             .baseUrl("https://api.open-meteo.com/")
             .client(okHttpClient)
-            .addConverterFactory(json.asConverterFactory(contentType))
+            .addConverterFactory(json.asConverterFactory(JSON_MEDIA_TYPE))
             .build()
     }
 
