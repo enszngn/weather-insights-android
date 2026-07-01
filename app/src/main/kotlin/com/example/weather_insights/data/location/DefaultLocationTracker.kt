@@ -17,66 +17,49 @@ class DefaultLocationTracker @Inject constructor(
     @ApplicationContext private val context: Context
 ) : LocationTracker {
 
+    /** Single source of truth for location permission checks. */
+    private fun hasPermission(): Boolean {
+        val hasFine = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        return hasFine || hasCoarse
+    }
+
     override suspend fun getCurrentLocation(): LocationData? {
-        val hasFineLocationPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        val hasCoarseLocationPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (!hasFineLocationPermission && !hasCoarseLocationPermission) {
-            return null
-        }
+        if (!hasPermission()) return null
 
         val lastLocation: android.location.Location? = suspendCancellableCoroutine { continuation ->
             locationClient.lastLocation
-                .addOnSuccessListener { location ->
-                    continuation.resume(location)
-                }
-                .addOnFailureListener {
-                    continuation.resume(null)
-                }
-                .addOnCanceledListener {
-                    continuation.resume(null)
-                }
+                .addOnSuccessListener { location -> continuation.resume(location) }
+                .addOnFailureListener { continuation.resume(null) }
+                .addOnCanceledListener { continuation.resume(null) }
         }
 
         val MAX_LOCATION_AGE_MS = 15 * 60 * 1000 // 15 minutes
-        val rawLocation: android.location.Location? = if (lastLocation != null && (System.currentTimeMillis() - lastLocation.time) < MAX_LOCATION_AGE_MS) {
-            lastLocation
-        } else {
-            val cts = com.google.android.gms.tasks.CancellationTokenSource()
-            kotlinx.coroutines.withTimeoutOrNull(5000) {
-                suspendCancellableCoroutine { continuation ->
-                    continuation.invokeOnCancellation {
-                        cts.cancel()
-                    }
-                    locationClient.getCurrentLocation(
-                        com.google.android.gms.location.Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-                        cts.token
-                    )
-                    .addOnSuccessListener { location ->
-                        continuation.resume(location)
-                    }
-                    .addOnFailureListener {
-                        continuation.resume(null)
-                    }
-                    .addOnCanceledListener {
-                        continuation.resume(null)
+        val rawLocation: android.location.Location? =
+            if (lastLocation != null && (System.currentTimeMillis() - lastLocation.time) < MAX_LOCATION_AGE_MS) {
+                lastLocation
+            } else {
+                val cts = com.google.android.gms.tasks.CancellationTokenSource()
+                kotlinx.coroutines.withTimeoutOrNull(5000) {
+                    suspendCancellableCoroutine { continuation ->
+                        continuation.invokeOnCancellation { cts.cancel() }
+                        locationClient.getCurrentLocation(
+                            com.google.android.gms.location.Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                            cts.token
+                        )
+                            .addOnSuccessListener { location -> continuation.resume(location) }
+                            .addOnFailureListener { continuation.resume(null) }
+                            .addOnCanceledListener { continuation.resume(null) }
                     }
                 }
             }
-        }
 
-        if (rawLocation == null) {
-            return null
-        }
-
-        return LocationData(rawLocation.latitude, rawLocation.longitude, null)
+        if (rawLocation == null) return null
+        return LocationData(rawLocation.latitude, rawLocation.longitude)
     }
 
     override suspend fun getCityName(latitude: Double, longitude: Double): String? {
@@ -84,8 +67,8 @@ class DefaultLocationTracker @Inject constructor(
             try {
                 val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
                 val addresses = geocoder.getFromLocation(latitude, longitude, 1)
-                addresses?.firstOrNull()?.locality 
-                    ?: addresses?.firstOrNull()?.adminArea 
+                addresses?.firstOrNull()?.locality
+                    ?: addresses?.firstOrNull()?.adminArea
                     ?: addresses?.firstOrNull()?.countryName
             } catch (e: Exception) {
                 null
@@ -93,17 +76,5 @@ class DefaultLocationTracker @Inject constructor(
         }
     }
 
-    override fun hasLocationPermission(): Boolean {
-        val hasFineLocationPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        val hasCoarseLocationPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        return hasFineLocationPermission || hasCoarseLocationPermission
-    }
+    override fun hasLocationPermission(): Boolean = hasPermission()
 }

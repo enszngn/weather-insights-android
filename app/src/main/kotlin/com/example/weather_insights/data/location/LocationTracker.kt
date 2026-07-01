@@ -8,6 +8,5 @@ interface LocationTracker {
 
 data class LocationData(
     val latitude: Double,
-    val longitude: Double,
-    val cityName: String? = null
+    val longitude: Double
 )

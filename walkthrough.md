@@ -95,3 +95,23 @@ This file contains a historical log of all major changes made to the project.
   - On launch, reads cached weather from `repository.getCachedWeather()` and updates UI instantly to `WeatherUiState.Success`, eliminating the initial loading screen.
   - In `loadWeather()`, launches parallel `getCityName()` background coroutine concurrently with `repository.fetchWeather()`, overlapping geocoder and weather API network latency.
 - Refactored unit test suites in [WeatherRepositoryTest.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/example/weather_insights/WeatherRepositoryTest.kt) and [WeatherViewModelTest.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/example/weather_insights/WeatherViewModelTest.kt) to mock the new local source and asynchronous parallel geocoding. All tests pass successfully.
+
+## Phase 6: Redundancy Cleanup & God Module Refactor
+
+### Redundancy Removals
+- Removed dead `LocationData.cityName` field from [LocationTracker.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/location/LocationTracker.kt) — leftover from old inline-geocoding design; no production code read or wrote it.
+- Made `saveWeatherToCache()` private in [WeatherRepository.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/repository/WeatherRepository.kt) — only ever called internally; was an unnecessary leak of implementation detail into the public API.
+- Deleted dead `mapCodeToGradient()` from [WeatherMapper.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherMapper.kt) — replaced by time-of-day interpolation; zero call sites remained.
+- Extracted private `hasPermission()` helper in [DefaultLocationTracker.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/location/DefaultLocationTracker.kt) — eliminated verbatim duplication of the two-permission check across `getCurrentLocation()` and `hasLocationPermission()`.
+- Extracted private `setNonSuccessState()` helper in [WeatherViewModel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherViewModel.kt) — replaced four scattered `if (_uiState.value !is WeatherUiState.Success)` guards; restructured `loadWeather()` with early returns to flatten nested if-else pyramid.
+
+### God Module Splits
+- Created [TimelineEntry.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/TimelineEntry.kt) in `data/model` — extracted from `HomeScreen.kt`, now a proper domain model.
+- Created [OpenMeteoMapper.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/mapper/OpenMeteoMapper.kt) in `data/mapper` — extracted `OpenMeteoResponse.toWeatherData()` extension from `WeatherRepository.kt`.
+- Created [BackgroundColorUtil.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/util/BackgroundColorUtil.kt) in `ui/util` — extracted `getDynamicBackgroundColor()` pure function from `HomeScreen.kt`.
+- Created [LoadingView.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/LoadingView.kt) in `ui/components` — extracted loading overlay composable.
+- Created [ErrorView.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/ErrorView.kt) in `ui/components` — extracted error overlay composable.
+- Created [WeatherTimeline.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherTimeline.kt) in `ui/components` — extracted `WeatherContent`, `buildTimeline()`, `HourRow`, and a new shared `SolarEventRow` (eliminating duplicated Sunrise/Sunset layout code).
+- Rewrote [HomeScreen.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/screens/HomeScreen.kt) from 484 lines down to 40 lines — now purely an orchestration composable responsible only for background color and state routing.
+- All 7 existing unit tests continue to pass with zero changes to test logic.
+

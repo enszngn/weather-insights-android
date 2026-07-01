@@ -42,7 +42,7 @@ class WeatherViewModelTest {
             return locationResult
         }
         override suspend fun getCityName(latitude: Double, longitude: Double): String? {
-            return cityNameResult ?: locationResult?.cityName
+            return cityNameResult
         }
         override fun hasLocationPermission(): Boolean {
             return locationPermissionGranted
@@ -146,7 +146,7 @@ class WeatherViewModelTest {
     fun testViewModelInit_LocationSuccess_TransitionsToSuccess() = runTest {
         val dummyData = WeatherData("Ankara", 39.93, 32.85, emptyList())
         val fakeLocationTracker = FakeLocationTracker().apply {
-            locationResult = LocationData(39.93, 32.85, "Ankara")
+            locationResult = LocationData(39.93, 32.85)
         }
         val fakeWeatherApi = FakeWeatherApiService().apply {
             getResponse = {

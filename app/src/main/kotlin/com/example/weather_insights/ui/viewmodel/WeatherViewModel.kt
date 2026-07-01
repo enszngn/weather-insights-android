@@ -24,6 +24,16 @@ class WeatherViewModel @Inject constructor(
         loadCachedWeatherAndFetch()
     }
 
+    /**
+     * Sets the given state only when the current state is not already a Success.
+     * Prevents stale-cache success from being overwritten by transient loading/error states.
+     */
+    private fun setNonSuccessState(state: WeatherUiState) {
+        if (_uiState.value !is WeatherUiState.Success) {
+            _uiState.value = state
+        }
+    }
+
     private fun loadCachedWeatherAndFetch() {
         viewModelScope.launch {
             val cached = repository.getCachedWeather()
@@ -36,57 +46,51 @@ class WeatherViewModel @Inject constructor(
 
     fun loadWeather() {
         viewModelScope.launch {
-            if (_uiState.value !is WeatherUiState.Success) {
-                _uiState.value = WeatherUiState.Loading
-            }
-            if (locationTracker.hasLocationPermission()) {
-                val location = locationTracker.getCurrentLocation()
-                if (location != null) {
-                    // Launch geocoding concurrently in the background
-                    var geocodedCityName: String? = null
-                    val geocodingJob = launch {
-                        geocodedCityName = locationTracker.getCityName(location.latitude, location.longitude)
-                    }
+            setNonSuccessState(WeatherUiState.Loading)
 
-                    repository.fetchWeather(location.latitude, location.longitude)
-                        .collect { result ->
-                            result.fold(
-                                onSuccess = { data ->
-                                    // Wait for the concurrent geocoding job to complete
-                                    geocodingJob.join()
-
-                                    val finalLocationName = if (!geocodedCityName.isNullOrEmpty()) {
-                                        geocodedCityName!!
-                                    } else {
-                                        data.locationName
-                                    }
-                                    val overriddenData = data.copy(locationName = finalLocationName)
-                                    _uiState.value = WeatherUiState.Success(overriddenData)
-                                },
-                                onFailure = { error ->
-                                    if (_uiState.value !is WeatherUiState.Success) {
-                                        _uiState.value = WeatherUiState.Error(
-                                            error.message ?: "An unknown error occurred"
-                                        )
-                                    }
-                                }
-                            )
-                        }
-                } else {
-                    if (_uiState.value !is WeatherUiState.Success) {
-                        _uiState.value = WeatherUiState.Error(
-                            message = "Could not retrieve device location. Please ensure location services are enabled on your device."
-                        )
-                    }
-                }
-            } else {
-                if (_uiState.value !is WeatherUiState.Success) {
-                    _uiState.value = WeatherUiState.Error(
+            if (!locationTracker.hasLocationPermission()) {
+                setNonSuccessState(
+                    WeatherUiState.Error(
                         message = "Location permission is required to fetch weather information.",
                         isPermissionRequired = true
                     )
-                }
+                )
+                return@launch
             }
+
+            val location = locationTracker.getCurrentLocation()
+            if (location == null) {
+                setNonSuccessState(
+                    WeatherUiState.Error(
+                        message = "Could not retrieve device location. Please ensure location services are enabled on your device."
+                    )
+                )
+                return@launch
+            }
+
+            // Launch geocoding concurrently with the weather fetch to overlap network latency
+            var geocodedCityName: String? = null
+            val geocodingJob = launch {
+                geocodedCityName = locationTracker.getCityName(location.latitude, location.longitude)
+            }
+
+            repository.fetchWeather(location.latitude, location.longitude)
+                .collect { result ->
+                    result.fold(
+                        onSuccess = { data ->
+                            geocodingJob.join()
+                            val finalLocationName = geocodedCityName
+                                ?.takeIf { it.isNotEmpty() }
+                                ?: data.locationName
+                            _uiState.value = WeatherUiState.Success(data.copy(locationName = finalLocationName))
+                        },
+                        onFailure = { error ->
+                            setNonSuccessState(
+                                WeatherUiState.Error(error.message ?: "An unknown error occurred")
+                            )
+                        }
+                    )
+                }
         }
     }
 }
