@@ -119,6 +119,10 @@ Historical log of major changes. One line per change; see `task.md` for the chec
 ## Phase 9: Reels-Style Vertical Page Navigation
 - `ui/components/WeatherTimeline.kt`: replaced static layout with a `VerticalPager` across `ForecastDay` items. Swiping vertically transitions the entire layout (background + header + timeline + details) per day. Added the day label ("Today", "Friday", etc.) under the city name in smaller semi-transparent font.
 - `ui/components/WeatherTimeline.kt`: added vertical dot pager indicators on the right side of the screen using `animateDpAsState` for active height stretching (vertical pill shape) and `animateFloatAsState` for active/inactive opacity.
+- `ui/components/WeatherTimeline.kt`: converted the hourly timeline from a vertical `LazyColumn` to a horizontal `LazyRow`, redesigning the timeline items as vertical columns (`HourColumn` and `SolarEventColumn`). Applied a horizontal gradient alpha mask using `drawWithContent` and `BlendMode.DstIn` to make the leftmost and rightmost elements fade out subtly.
 - `ui/util/BackgroundColorUtil.kt`: added `getDynamicBackgroundColorForDay` to compute dynamic day/night colors on a per-day basis, using it for the full-bleed page backgrounds.
 - Deleted `DailyForecastRow.kt` (safe deletion of redundant code).
+- `ui/components/GlassyPanel.kt`: changed default `cornerRadius` parameter from `0.dp` (sharp) to `12.dp` (subtly rounded) to make all card corners throughout the app look more circleish and modern.
+- `ui/components/WeatherTimeline.kt`: compacted the hourly weather horizontal timeline by ~40% by reducing the glassy card height from `180.dp` to `130.dp`, vertical spacing from `8.dp` to `4.dp`, item widths from `64.dp` to `52.dp`, horizontal padding from `12.dp` to `6.dp`, and scaling down text sizes (e.g., time to `12.sp`, temp to `15.sp`) and icon size to `24.dp`.
+- `ui/components/WeatherTimeline.kt`: shifted the horizontal timeline panel upwards by changing layout weights (timeline weight from `0.6f` to `0.35f` and bottom dashboard weight from `0.2f` to `0.45f`), positioning the card center at 37.5% from the top.
 - Verified compilation and test suite (all tests pass).

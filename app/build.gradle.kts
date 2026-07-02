@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.weatherinsights"
+    namespace = "com.weatherinsights.daily.forecast.live.radar"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -15,7 +15,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.weatherinsights"
+        applicationId = "com.weatherinsights.daily.forecast.live.radar"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

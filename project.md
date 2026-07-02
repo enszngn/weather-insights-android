@@ -95,6 +95,10 @@ Tests: `app/src/test/java/com/weatherinsights/` (WeatherRepositoryTest, WeatherV
 - [x] Phase 9.3: Modularize getDynamicBackgroundColorForDay in BackgroundColorUtil.kt
 - [x] Phase 9.4: Safe deletion of unused DailyForecastRow.kt
 - [x] Phase 9.5: Add vertical dot indicators on the right side of the screen
+- [x] Phase 9.6: Convert hourly timeline to horizontal scrolling with fade edges masking
+- [x] Phase 9.7: Make glassy panel card corners subtly rounded (12.dp corner radius)
+- [x] Phase 9.8: Compact hourly weather tab (reduced panel height, item widths, padding, and text/icon sizing)
+- [x] Phase 9.9: Reposition hourly weather timeline panel higher up (centered at 37.5% vertically from top)
 
 ## Not Started (from original roadmap, never completed)
 
