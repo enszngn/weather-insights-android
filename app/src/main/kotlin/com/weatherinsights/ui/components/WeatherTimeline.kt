@@ -162,6 +162,13 @@ internal fun WeatherContent(
                         .fillMaxSize()
                         .padding(16.dp)
                 ) {
+                    // Horizontal scrollable row for the full multi-day forecast
+                    DailyForecastRow(
+                        forecast = weatherData.forecast,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp)
+                    )
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
