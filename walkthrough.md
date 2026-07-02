@@ -1,275 +1,124 @@
 # Project Walkthrough
 
-This file contains a historical log of all major changes made to the project.
+Historical log of major changes. One line per change; see `task.md` for the checklist.
 
-## Initial Setup - Phase 0
-- Created `agents.md` with strict AI guidelines.
-- Created `project.md` as a technical roadmap.
-- Created `README.md` with project vision and architecture.
-- Established persistent logging by creating `task.md` and `walkthrough.md` in the project root.
-- Refactored package structure for Jetpack Compose and Repository pattern:
-    - `data/model`
-    - `data/network`
-    - `data/repository`
-    - `ui/components`
-    - `ui/screens`
-    - `ui/theme`
-    - `ui/viewmodel`
+## Phase 0: Setup
+- Created `agents.md`, `project.md`, `README.md`, `task.md`, `walkthrough.md`.
+- Package structure under `app/src/main/kotlin/com/weatherinsights/`:
+  - `data/{model,network,repository,datasource,location,mapper}`
+  - `ui/{components,screens,theme,util,viewmodel}`
+  - `worker/`, `receiver/`, `di/`
 
 ## Phase 1.1: Dependency Configuration
-- Updated `gradle/libs.versions.toml` with Kotlin 2.0.21, Hilt 2.60, Retrofit 2.11.0, and Compose BOM 2024.10.00.
-- Declared plugins in root `build.gradle.kts` and applied KSP, Hilt, Serialization, and Compose compiler plugins in `app/build.gradle.kts`.
-- Configured JVM target to Java 11 using the new `kotlin { compilerOptions { jvmTarget.set(...) } }` block for AGP 9.0+.
-- Configured `android.disallowKotlinSourceSets=false` in `gradle.properties` to ensure KSP registers generated source files correctly.
-- Added Internet permission, registered `WeatherApplication` Hilt entry point, and declared launcher `MainActivity` in `AndroidManifest.xml`.
-- Created `WeatherApplication` annotated with `@HiltAndroidApp`.
-- Created `MainActivity` annotated with `@AndroidEntryPoint` with initial Compose UI layout.
+- `gradle/libs.versions.toml`: Kotlin 2.0.21, Hilt 2.60, Retrofit 2.11.0, Compose BOM 2024.10.00.
+- Root + app `build.gradle.kts`: KSP, Hilt, Serialization, Compose compiler plugins.
+- JVM target Java 11 via `kotlin { compilerOptions { jvmTarget } }` (AGP 9.0+).
+- `gradle.properties`: `android.disallowKotlinSourceSets=false` (KSP source set fix).
+- `AndroidManifest.xml`: Internet permission, `WeatherApplication` (@HiltAndroidApp), `MainActivity` (@AndroidEntryPoint).
 
-## Phase 1.3 & Phase 2: Network Client & Data Layer
-- Created structured and raw forecast serialization models in `data/model` package ([WeatherModels.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/WeatherModels.kt), [OpenMeteoModels.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/OpenMeteoModels.kt), and [WeatherPostPayload.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/WeatherPostPayload.kt)).
-- Defined Retrofit API interfaces in `data/network` package ([WeatherApiService.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/network/WeatherApiService.kt) and [OpenMeteoApiService.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/network/OpenMeteoApiService.kt)).
-- Configured Dagger Hilt dependency injection for JSON parser, OkHttpClient, and two distinct Retrofit clients inside [NetworkModule.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/di/NetworkModule.kt).
-- Implemented worker-first caching and fallback logic inside [WeatherRepository.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/repository/WeatherRepository.kt).
-- Created a self-contained unit test suite in [WeatherRepositoryTest.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/example/weather_insights/WeatherRepositoryTest.kt) utilizing API Fakes, verifying cache hits, misses, uploads, and fallback errors.
+## Phase 1.3 & 2: Network & Data Layer
+- Models: `data/model/WeatherModels.kt`, `OpenMeteoModels.kt`, `WeatherPostPayload.kt`.
+- API: `data/network/WeatherApiService.kt`, `OpenMeteoApiService.kt`.
+- DI: `di/NetworkModule.kt` provides JSON parser, OkHttpClient, two Retrofit clients.
+- Repository: `data/repository/WeatherRepository.kt` (worker-first caching + fallback).
+- Tests: `WeatherRepositoryTest.kt` (API fakes, cache hit/miss/upload/fallback).
 
-## Phase 3: Logic & State Management
-- Configured Google Play Services Location dependency in version catalogs and `build.gradle.kts`.
-- Requested coarse and fine location permissions in `AndroidManifest.xml`.
-- Created [LocationTracker.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/location/LocationTracker.kt) interface and coordinates model.
-- Created [DefaultLocationTracker.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/location/DefaultLocationTracker.kt) using FusedLocationProviderClient, wrapping Google tasks with coroutines cancellable suspend block.
-- Configured [LocationModule.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/di/LocationModule.kt) for Hilt to bind `LocationTracker` and provide `FusedLocationProviderClient`.
-- Implemented [WeatherUiState.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherUiState.kt) sealed interface supporting state representing Loading, Success, and Error.
-- Implemented [WeatherViewModel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherViewModel.kt) supporting location querying and mapping results. Added location-permission-denied detection to transition to error states with permission warnings.
-- Added `kotlinx-coroutines-test` dependency and implemented unit tests inside [WeatherViewModelTest.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/example/weather_insights/WeatherViewModelTest.kt) covering location permission errors and success/failure flows.
+## Phase 3: Logic & State
+- Location: Google Play Services FusedLocationProviderClient dep added.
+- `data/location/LocationTracker.kt` (interface + coords model), `DefaultLocationTracker.kt` (cancellable coroutine wrapper for Google tasks).
+- `di/LocationModule.kt` binds `LocationTracker` + provides `FusedLocationProviderClient`.
+- `ui/viewmodel/WeatherUiState.kt`: sealed interface (Loading/Success/Error).
+- `ui/viewmodel/WeatherViewModel.kt`: location query + state mapping; permission-denied → error state.
+- Tests: `WeatherViewModelTest.kt` (permission errors, success/failure flows).
 
-## Phase 1.2 & Phase 4: Glassmorphic UI Setup
-- Created custom theme colors in [Color.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/theme/Color.kt) defining translucent backplates and high-contrast texts.
-- Created custom font styles in [Type.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/theme/Type.kt) and initialized [Theme.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/theme/Theme.kt).
-- Coded weather mapper utils in [WeatherMapper.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherMapper.kt) translating weather codes to emojis, descriptions, and color gradient backplates.
-- Coded custom glassmorphism card [GlassyPanel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/GlassyPanel.kt).
-- Created [HomeScreen.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/screens/HomeScreen.kt) with vertical weights (Top 20% / Center 60% / Bottom 20%):
-  - Displays dynamic ambient gradient backgrounds matching current weather code.
-  - Generates glassy loading and permission request prompts.
-  - Lists next 6 hours timeline showing times, weather code emojis, temperatures, and humidity percentages.
-- Updated [MainActivity.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/MainActivity.kt) to bind to `WeatherViewModel`, request fine/coarse location permissions dynamically at runtime, and render `HomeScreen`.
+## Phase 1.2 & 4: Glassmorphic UI
+- Theme: `ui/theme/{Color,Type,Theme}.kt`.
+- `ui/components/WeatherMapper.kt`: weather code → icon/description/gradient.
+- `ui/components/GlassyPanel.kt`: custom glass card.
+- `ui/screens/HomeScreen.kt`: vertical weights (20/60/20), dynamic gradient background, 6-hour timeline, loading/permission prompts.
+- `MainActivity.kt`: binds ViewModel, runtime fine/coarse permission requests, renders HomeScreen.
 
 ## Sunset Integration & UI Redesign
-- Added optional `sunrise` and `sunset` properties to serialization models in [WeatherModels.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/WeatherModels.kt) and [OpenMeteoModels.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/OpenMeteoModels.kt).
-- Configured default parameter to fetch `uv_index_max,sunrise,sunset` in [OpenMeteoApiService.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/network/OpenMeteoApiService.kt).
-- Modified `mapCodeToEmoji` in [WeatherMapper.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherMapper.kt) supporting an `isNight` parameter returning night representations (`🌙` for clear sky, `☁️` for clouds).
-- Completely overhauled [HomeScreen.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/screens/HomeScreen.kt) layout:
-  - Enlarged the city name display to `44.sp`.
-  - Implemented chronological current-hour filtering and chronological insertion of Sunset event rows (`TimelineEntry.Sunset`).
-  - Restructured hourly entries: removed vertical degree divider (`|`), relocated humidity percentage underneath the emoji, and added drop prefix emoji `💧`.
-  - Updated the bottom dashboard: deleted the humidity panel, and centered the Wind Speed layout card with an enlarged windy emoji `💨`.
-  - Changed the app background to scale mathematically based on the current time of day: interpolates from solid light blue (`#009AFF`) at mid-day to dark midnight blue (`#001533`) at mid-night, using sunrise and sunset coordinates.
-  - Removed the "Hourly Timeline" text header inside the main container.
-  - Set the text color of the timeline hours, humidity values, and wind speed labels to high-contrast white.
-  - Expanded the timeline slider size to display 24 hours of weather forecasts.
-  - Refactored `LocationTracker` to query live GPS updates via `getCurrentLocation` and `PRIORITY_HIGH_ACCURACY` to bypass stale location cache.
-  - Removed the transparent GlassyPanel window from around the wind speed indicator in the bottom panel.
-  - Implemented client-side reverse-geocoding using Android's native `Geocoder` inside `LocationTracker` to retrieve the actual city name.
-  - Updated `WeatherViewModel` to properly display the dynamically geocoded city name.
+- Added `sunrise`/`sunset` to `WeatherModels.kt` + `OpenMeteoModels.kt`; default `uv_index_max,sunrise,sunset` param in `OpenMeteoApiService.kt`.
+- `WeatherMapper.mapCodeToEmoji(isNight)` for night icons.
+- HomeScreen overhaul: 44.sp city name, chronological current-hour filtering, Sunset row insertion, 24-hour timeline, time-of-day gradient interpolation (#009AFF midday → #001533 midnight).
+- `LocationTracker`: live GPS via `getCurrentLocation` + `PRIORITY_HIGH_ACCURACY`; client-side `Geocoder` reverse-geocoding for city name.
 
-## Phase 5.3: Launch Latency Optimizations
-- Implemented **Fast Location Fallback** in [DefaultLocationTracker.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/location/DefaultLocationTracker.kt):
-  - Queries FusedLocationProviderClient's cached `lastLocation` first.
-  - Reuses the cached location if it is fresh (obtained within the last 15 minutes), bypassing GPS active satellite scan.
-  - Falls back to low/medium accuracy `PRIORITY_BALANCED_POWER_ACCURACY` with a strict 5-second timeout if the cache is empty or stale.
-- Implemented **Fire-and-Forget Async Caching** in [WeatherRepository.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/repository/WeatherRepository.kt):
-  - Created an application-lifespan `CoroutineScope` using `SupervisorJob` + `Dispatchers.IO` to execute asynchronous operations outside of the UI flow's cancellation boundary.
-  - Added a client-side mapper function `OpenMeteoResponse.toWeatherData()` to map weather parameters (current conditions, hourly blocks, and daily extremes) to `WeatherData`.
-  - Modified the 404 cache miss path to immediately parse and emit the local mapped Open-Meteo response, dismissing the loading screen instantly.
-  - Dispatched the Cloudflare database upload task (`uploadMeteoData`) in the background on the custom repository scope, swallowing network errors to ensure UI transparency.
-- Updated unit test suite in [WeatherRepositoryTest.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/example/weather_insights/WeatherRepositoryTest.kt) to match the new asynchronous caching and local mapping flows.
+## Phase 5.3: Launch Latency
+- `DefaultLocationTracker.kt`: fast fallback — cached `lastLocation` if <15 min old, else `PRIORITY_BALANCED_POWER_ACCURACY` with 5s timeout.
+- `WeatherRepository.kt`: app-lifespan `CoroutineScope` (SupervisorJob + IO); `OpenMeteoResponse.toWeatherData()` client-side mapper; 404 miss path emits localmapped response instantly; Cloudflare upload fire-and-forget on scope.
+- Tests updated for async caching/local mapping.
 
-## Phase 5.4: Parallel Geocoding & Jetpack DataStore Local Caching
-- Added Jetpack DataStore Preferences dependency `androidx.datastore:datastore-preferences` to the versions catalog and app `build.gradle.kts`.
-- Created [WeatherLocalSource.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/datasource/WeatherLocalSource.kt) interface and `DataStoreWeatherLocalSource` to manage weather caching using Jetpack DataStore.
-- Created Hilt module [LocalModule.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/di/LocalModule.kt) to bind `WeatherLocalSource` implementation.
-- Refactored [WeatherRepository.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/repository/WeatherRepository.kt) to inject `WeatherLocalSource`, decoupling it from Android's `Context` and enabling pure unit testing. Saved fetched data to the cache in success paths.
-- Decoupled reverse-geocoding from [DefaultLocationTracker.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/location/DefaultLocationTracker.kt) location lookup:
-  - `getCurrentLocation()` returns coordinates immediately.
-  - Implemented `getCityName()` separately.
-- Overhauled [WeatherViewModel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherViewModel.kt):
-  - On launch, reads cached weather from `repository.getCachedWeather()` and updates UI instantly to `WeatherUiState.Success`, eliminating the initial loading screen.
-  - In `loadWeather()`, launches parallel `getCityName()` background coroutine concurrently with `repository.fetchWeather()`, overlapping geocoder and weather API network latency.
-- Refactored unit test suites in [WeatherRepositoryTest.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/example/weather_insights/WeatherRepositoryTest.kt) and [WeatherViewModelTest.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/example/weather_insights/WeatherViewModelTest.kt) to mock the new local source and asynchronous parallel geocoding. All tests pass successfully.
+## Phase 5.4: Parallel Geocoding & DataStore
+- Dep: `androidx.datastore:datastore-preferences`.
+- `data/datasource/WeatherLocalSource.kt` + `DataStoreWeatherLocalSource` impl; `di/LocalModule.kt` binding.
+- `WeatherRepository.kt`: injected `WeatherLocalSource` (Context decoupled); saves to cache on success.
+- `DefaultLocationTracker.kt`: `getCurrentLocation()` returns coords only; `getCityName()` separate.
+- `WeatherViewModel.kt`: reads cached weather on init (instant Success); parallel `getCityName()` + `fetchWeather()`.
+- Tests updated to mock local source + parallel geocoding.
 
 ## Phase 6: Redundancy Cleanup & God Module Refactor
+- Removed dead `LocationData.cityName`; made `saveWeatherToCache()` private; deleted dead `mapCodeToGradient()`.
+- Extracted `hasPermission()` in `DefaultLocationTracker.kt`; extracted `setNonSuccessState()` in `WeatherViewModel.kt` (early-return flattening).
+- Splits:
+  - `data/model/TimelineEntry.kt` (from HomeScreen).
+  - `data/mapper/OpenMeteoMapper.kt` (from Repository).
+  - `ui/util/BackgroundColorUtil.kt` (from HomeScreen).
+  - `ui/components/{LoadingView,ErrorView,WeatherTimeline}.kt`.
+- HomeScreen: 484 → 40 lines (orchestration only). Tests unchanged.
 
-### Redundancy Removals
-- Removed dead `LocationData.cityName` field from [LocationTracker.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/location/LocationTracker.kt) — leftover from old inline-geocoding design; no production code read or wrote it.
-- Made `saveWeatherToCache()` private in [WeatherRepository.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/repository/WeatherRepository.kt) — only ever called internally; was an unnecessary leak of implementation detail into the public API.
-- Deleted dead `mapCodeToGradient()` from [WeatherMapper.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherMapper.kt) — replaced by time-of-day interpolation; zero call sites remained.
-- Extracted private `hasPermission()` helper in [DefaultLocationTracker.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/location/DefaultLocationTracker.kt) — eliminated verbatim duplication of the two-permission check across `getCurrentLocation()` and `hasLocationPermission()`.
-- Extracted private `setNonSuccessState()` helper in [WeatherViewModel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherViewModel.kt) — replaced four scattered `if (_uiState.value !is WeatherUiState.Success)` guards; restructured `loadWeather()` with early returns to flatten nested if-else pyramid.
+## Bugfix: locationName Always "Çankaya"
+- Root cause: POST payload missing `locationName`; geocoding raced with fire-and-forget POST.
+- Fix: added `locationName: String?` to `WeatherPostPayload.kt`; threaded through `OpenMeteoMapper.toWeatherData()` + `WeatherRepository.fetchWeather()`; ViewModel now awaits `getCityName()` before `fetchWeather()`.
 
-### God Module Splits
-- Created [TimelineEntry.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/TimelineEntry.kt) in `data/model` — extracted from `HomeScreen.kt`, now a proper domain model.
-- Created [OpenMeteoMapper.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/mapper/OpenMeteoMapper.kt) in `data/mapper` — extracted `OpenMeteoResponse.toWeatherData()` extension from `WeatherRepository.kt`.
-- Created [BackgroundColorUtil.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/util/BackgroundColorUtil.kt) in `ui/util` — extracted `getDynamicBackgroundColor()` pure function from `HomeScreen.kt`.
-- Created [LoadingView.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/LoadingView.kt) in `ui/components` — extracted loading overlay composable.
-- Created [ErrorView.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/ErrorView.kt) in `ui/components` — extracted error overlay composable.
-- Created [WeatherTimeline.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherTimeline.kt) in `ui/components` — extracted `WeatherContent`, `buildTimeline()`, `HourRow`, and a new shared `SolarEventRow` (eliminating duplicated Sunrise/Sunset layout code).
-- Rewrote [HomeScreen.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/screens/HomeScreen.kt) from 484 lines down to 40 lines — now purely an orchestration composable responsible only for background color and state routing.
-- All 7 existing unit tests continue to pass with zero changes to test logic.
+## Manual Refresh + Rate Limiting
+- `WeatherLocalSource.kt`: `getRefreshState()` / `saveRefreshState(count, windowStart)` via DataStore.
+- `WeatherViewModel.kt`: injected `WeatherLocalSource`; `canRefresh: StateFlow<Boolean>`; `refresh()` guards `MAX_REFRESHES = 3` per 15-min rolling window; persists count + window start; resets on expiry.
+- `WeatherTimeline.kt`: refresh IconButton in header, dimmed at alpha 0.35f when disabled.
+- Tests: comprehensive refresh/rate-limit/expired-window coverage; 11 tests pass.
 
-## Bugfix: `locationName` Always Showing "Çankaya" in Analytics
+## Material Icons Migration & Styling
+- Dep: `compose-material-icons-extended`.
+- `WeatherMapper.kt`: `mapCodeToIcon(code, isNight)` + `mapCodeToIconColor(code, isNight)` (yellow sun, grey clouds, light blue moon, dark grey storm).
+- `WeatherTimeline.kt`: all emojis → `Icons.Rounded.*`; humidity `WaterDrop`; sunrise/sunset `WbTwilight`; wind icon 54.dp, label removed.
+- `GlassyPanel.kt`: default `cornerRadius` 0.dp (sharp corners).
+- `ErrorView.kt`: emojis → `Icons.Rounded.{LocationOn,Warning}`.
 
-### Root Cause (Two Bugs)
-**Bug 1 — Missing field in POST payload:** `WeatherPostPayload` did not include a `locationName` field. The Cloudflare Worker had no city name supplied by the Android client, so it fell back to IP-based geolocation of the HTTP request. Since the developer's machine is in Turkey, every POST resolved to "Çankaya" regardless of the GPS coordinates.
+## Package Rename: com.example.weather_insights → com.weatherinsights
+- Moved `app/src/main/kotlin/com/example/weather_insights/` → `com/weatherinsights/` (and test tree).
+- Global replace in all Kotlin, Gradle, Manifest.
+- `./gradlew clean` to purge stale Hilt/KSP generated code. 11 tests pass.
 
-**Bug 2 — Timing race:** The ViewModel launched `getCityName()` geocoding **concurrently** with `fetchWeather()`. The fire-and-forget POST inside the Repository fired before geocoding finished, meaning even if `locationName` had been in the payload, it would have been `null` or `"Current Location"`.
-
-### Fix
-- Added `locationName: String? = null` to [WeatherPostPayload.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/model/WeatherPostPayload.kt) — the Worker can now read and store the Android-geocoded name directly.
-- Added `locationName: String = "Current Location"` parameter to `OpenMeteoResponse.toWeatherData()` in [OpenMeteoMapper.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/mapper/OpenMeteoMapper.kt) — both the local DataStore cache and the POST now carry the correct city name.
-- Changed `fetchWeather()` in [WeatherRepository.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/repository/WeatherRepository.kt) to accept `locationName: String? = null` and thread it through to both the payload and the mapper.
-- Changed [WeatherViewModel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherViewModel.kt) to await `getCityName()` **before** calling `fetchWeather()`. Android's local `Geocoder` is a fast in-process call (~50–150 ms) and not a network bottleneck; the simplification also removes the `geocodingJob.join()` + `data.copy()` secondary override pattern entirely.
-## Manual Refresh Button with 15-Minute Rate Limiting
-
-### Goal
-Add a refresh button next to the city name on the success screen. Users get 3 manual refreshes per 15-minute rolling window, matching the cloud cache TTL. The limit persists across app restarts within the window.
-
-### Implementation
-
-- **[WeatherLocalSource.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/data/datasource/WeatherLocalSource.kt):** Added `getRefreshState(): Pair<Int, Long>?` and `saveRefreshState(count, windowStart)` interface methods + DataStore implementation using two new preference keys (`refresh_count`, `refresh_window_start`).
-- **[WeatherViewModel.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/viewmodel/WeatherViewModel.kt):**
-  - Injected `WeatherLocalSource` as a third constructor parameter.
-  - On `init`, reads persisted refresh state; resets counter if 15-minute window has expired.
-  - Added `_canRefresh: MutableStateFlow<Boolean>` exposed as `canRefresh: StateFlow<Boolean>`.
-  - Added `fun refresh()`: guards against exceeding `MAX_REFRESHES = 3`, records `refreshWindowStart` on first press, persists to DataStore, then calls `loadWeather()`.
-- **[WeatherTimeline.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherTimeline.kt):** Added `onRefresh` and `canRefresh` parameters to `WeatherContent`. City name now lives inside a `Row` with an `IconButton` (`Icons.Default.Refresh`). Button is dimmed (`alpha 0.35f`) and non-interactive when `canRefresh == false`.
-- **[HomeScreen.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/screens/HomeScreen.kt):** Threaded `onRefresh` and `canRefresh` through to `WeatherContent`.
-- **[MainActivity.kt](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/MainActivity.kt):** Collects `canRefresh` state; wires `onRefresh = { viewModel.refresh() }`.
-- **Test files:** Updated `FakeWeatherLocalSource` in both `WeatherRepositoryTest` and `WeatherViewModelTest` with the new interface stubs. Fixed the `FakeLocationTracker` signature in `WeatherViewModelTest` to match the new `getCurrentLocation(forceRefresh)` signature, added comprehensive unit tests for `refresh()`, rate limiting, and expired window reset, and verified that all 11 tests pass successfully.
-
-## Wind Speed Emoji Replacement with Air Symbol (Rounded)
-
-### Goal
-Replace the custom `💨` wind emoji inside the bottom dashboard with a professional, clean vector icon that represents wind, utilizing an official pre-designed Material icon.
-
-### Implementation
-- **[`libs.versions.toml`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/gradle/libs.versions.toml)**: Added `compose-material-icons-extended` to compose libraries.
-- **[`app/build.gradle.kts`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/build.gradle.kts)**: Added implementation dependency `libs.compose.material.icons.extended` to include standard Material icons.
-- **[`WeatherTimeline.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherTimeline.kt)**: Imported and replaced the `Text("💨")` with `Icon(imageVector = Icons.Rounded.Air, contentDescription = "Wind icon", tint = Color.White, modifier = Modifier.size(38.dp))`.
-
-## Full Emojis to Material Icons Migration & Sharp Corners Styling
-
-### Goal
-Remove all remaining emojis, replace them with official Google Material Design Icons (`Icons.Rounded.*`), set card background corner shapes to flat/sharp (`0.dp`), enlarge the wind icon to `54.dp` and remove the redundant "Wind Speed" text label.
-
-### Implementation
-- **[`WeatherMapper.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherMapper.kt)**: Added `mapCodeToIcon(code, isNight)` to resolve weather conditions to standard rounded icons (`WbSunny`, `NightsStay`, `Cloud`, `Grain`, `WaterDrop`, `AcUnit`, `Thunderstorm`).
-- **[`WeatherTimeline.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherTimeline.kt)**:
-  - Replaced hourly timeline code emojis with corresponding icons.
-  - Replaced hourly humidity droplet `Text("💧")` with `Icon(Icons.Rounded.WaterDrop)`.
-  - Replaced sunrise/sunset row emojis with `Icons.Rounded.WbTwilight`.
-  - Replaced wind indicator with size `54.dp` and deleted the text label underneath.
-- **[`GlassyPanel.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/GlassyPanel.kt)**: Updated default `cornerRadius` from `20.dp` to `0.dp` to make panel/bubble shapes sharp.
-- **[`LoadingView.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/LoadingView.kt)** & **[`ErrorView.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/ErrorView.kt)**: Removed `cornerRadius` overrides on `GlassyPanel` to enforce sharp corners.
-- **[`ErrorView.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/ErrorView.kt)**: Replaced emojis `📍` and `⚠️` in titles with a `Row` displaying clean text alongside the corresponding Material Icon (`Icons.Rounded.LocationOn` / `Icons.Rounded.Warning`).
-
-## Weather Icons Color Tinting Customization
-
-### Goal
-Apply specific color tints to condition icons for better visual parsing:
-- Sun: Slightly yellowish
-- Clouds: Slightly greyish
-- Moon: Slightly light blueish
-- Thunderstorm: Slightly darker greyish
-
-### Implementation
-- **[`WeatherMapper.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherMapper.kt)**: Added `mapCodeToIconColor(code, isNight)` returning:
-  - Yellow: `Color(0xFFFFEE58)` for day clear skies.
-  - Light blue: `Color(0xFFB3E5FC)` for night clear sky (moon).
-  - Grey: `Color(0xFFECEFF1)` for clouds.
-  - Darker grey: `Color(0xFF78909C)` for thunderstorms.
-  - White / Light blue for snow and rain respectively.
-- **[`WeatherTimeline.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/example/weather_insights/ui/components/WeatherTimeline.kt)**: Integrated the mapped icon color into the `HourRow` weather condition `Icon`'s `tint` parameter.
-
-## Package Name Rename (`com.example.weather_insights` -> `com.weatherinsights`)
-
-### Goal
-Rename the application's package name to `com.weatherinsights` to align it closely with `weather-insightscom` (Java packages cannot contain hyphens).
-
-### Implementation
-- **Source Files Move**: Moved all files from `app/src/main/kotlin/com/example/weather_insights/` to `app/src/main/kotlin/com/weatherinsights/`, and from `app/src/test/java/com/example/weather_insights/` to `app/src/test/java/com/weatherinsights/`.
-- **Global Search and Replace**: Globally replaced all instances of `com.example.weather_insights` with `com.weatherinsights` in all Kotlin source files, test files, Gradle scripts (`build.gradle.kts`), and `AndroidManifest.xml`.
-- **Cleaned Build Cache**: Ran `./gradlew clean` to purge stale generated Hilt and compiler annotation-processing code referencing the old package name, then verified the build compiles and all 11 unit tests pass.
-
-## App Display Name Change (`weather-insights` -> `Weather Insights`)
-
-### Goal
-Change the user-facing launcher name on the Android home screen/app drawer to `Weather Insights` (properly capitalized and containing spaces).
-
-### Implementation
-- **[`strings.xml`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/res/values/strings.xml)**: Changed `<string name="app_name">weather-insights</string>` to `<string name="app_name">Weather Insights</string>`.
+## App Display Name
+- `res/values/strings.xml`: `app_name` → "Weather Insights".
 
 ## Customizable Weather Notifications
+- Deps/Manifest: WorkManager; `POST_NOTIFICATIONS` permission.
+- `data/model/NotificationPreferences.kt`: config switches + time strings.
+- `WeatherLocalSource.kt`: serialize/deserialize prefs + last-notification-date tracking.
+- `worker/WeatherNotificationWorker.kt`: critical alerts (storm codes 95/96/99, imminent rain) bypass quiet hours; morning report (default 08:00); evening report (default 20:00); weekend summary (Fri 17-18:00); temperature shock (Δ ≥ 10°C); quiet hours silencing.
+- `ui/screens/SettingsScreen.kt`: Compose TimePicker, iOS-style wheel pickers, test notification button.
+- `WeatherTimeline.kt`: settings gear icon in header.
+- `HomeScreen.kt`: routes/toggles SettingsScreen.
+- `WeatherViewModel.kt`: exposes + persists preferences.
+- `MainActivity.kt`: runtime POST_NOTIFICATIONS request; periodic WorkManager enqueue; immediate channel registration in `onCreate()`; `REPLACE` policy for reschedule on startup.
+- Worker dynamic fetch: if no cached weather, uses last location + repository fetch.
+- Decoupled `Context`/notifications from `WeatherViewModel.kt` → `sendTestNotification()` moved to `MainActivity.kt`.
+- 12 tests pass. All UI + worker strings English.
 
-### Goal
-Implement push notifications with user-configurable times inside the app, categorizing warnings into critical alerts (severe weather/storm, imminent rain), routine summaries (morning report, evening report), and smart insights (weekend summary, temperature shock, health & allergen notifications).
+## Phase 7: Exact Alarm Scheduling
+- `AndroidManifest.xml`: `SCHEDULE_EXACT_ALARM` permission; `WeatherNotificationReceiver` registered.
+- `receiver/AlarmScheduler.kt`: set/cancel exact wakeup alarms via `AlarmManager`.
+- `receiver/WeatherNotificationReceiver.kt`: on alarm → one-shot WorkManager report → schedule next day.
+- `worker/WeatherNotificationWorker.kt`: distinguishes direct report triggers (morning/evening only) from periodic runs (critical alerts + caching only).
+- `data/model/NotificationPreferences.kt`: removed `healthAlertsEnabled`.
+- `ui/screens/SettingsScreen.kt`: removed Health & Allergy Alerts toggle.
+- `MainActivity.kt`: dynamic alarm scheduling in preferences-change `LaunchedEffect`.
+- Build clean + tests pass.
 
-### Implementation
-- **Dependencies & Manifests**:
-  - Added WorkManager dependency to [`libs.versions.toml`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/gradle/libs.versions.toml) and [`build.gradle.kts`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/build.gradle.kts).
-  - Added `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />` in [`AndroidManifest.xml`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/AndroidManifest.xml).
-- **Data & Storage**:
-  - Created [`NotificationPreferences.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/data/model/NotificationPreferences.kt) containing config switches and time strings.
-  - Updated [`WeatherLocalSource.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/data/datasource/WeatherLocalSource.kt) to serialize/deserialize notification preferences in DataStore Preferences and track last notification date strings.
-- **Background Execution**:
-  - Created [`WeatherNotificationWorker.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/worker/WeatherNotificationWorker.kt) using WorkManager running hourly.
-  - Implemented rules for:
-    - *Critical Alerts*: Storm codes (95, 96, 99) and imminent rain checks bypassing quiet hours.
-    - *Sabah Raporu*: Triggers at morning hour (default 08:00) with clothing recommendations based on min/max temperatures.
-    - *Akşam Raporu*: Triggers at evening hour (default 20:00) with tomorrow's forecast summary.
-    - *Hafta Sonu Özeti*: Triggers on Friday afternoon (17:00–18:00) summarizing Saturday and Sunday forecasts.
-    - *Sıcaklık Şoku*: Compares tomorrow's max temp with today's max temp, alerting if difference >= 10°C.
-    - *Sağlık*: High UV index uyarısı and simulated high pollen/poor AQI indicators based on wind, humidity, and heat.
-  - Implemented Quiet Hours checks that silence non-critical reports during sleep hours.
-- **UI Integration**:
-  - Created [`SettingsScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/SettingsScreen.kt) to edit preferences and select custom times using Compose `TimePicker`.
-  - Added settings gear icon inside the [`WeatherTimeline.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/components/WeatherTimeline.kt) header.
-  - Updated [`HomeScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/HomeScreen.kt) to route/toggle displaying the new `SettingsScreen`.
-- **ViewModel & Lifecycle**:
-  - Updated [`WeatherViewModel.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/viewmodel/WeatherViewModel.kt) to expose and persist preferences state.
-  - Updated [`MainActivity.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/MainActivity.kt) to request notification permission at runtime and enqueue the periodic background work request.
-- **Testing**:
-  - Mocked notification methods in `FakeWeatherLocalSource` and added unit test coverage for the ViewModel preferences flow in [`WeatherViewModelTest.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/weatherinsights/WeatherViewModelTest.kt).
-  - All 12 unit tests pass successfully.
-- **English Localization**:
-  - Translated all UI labels, options, time selection dialogs, and notification channel/content messages in [`SettingsScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/SettingsScreen.kt) and [`WeatherNotificationWorker.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/worker/WeatherNotificationWorker.kt) from Turkish to English to comply with the project's language guidelines.
-- **UI Customizations**:
-  - Changed switch active track background color from blue to a dark grey (`Color(0xFF4F4F4F)`).
-  - Implemented iOS-style vertical wheel pickers for hour and minute selections inside a dialog window popup ([`SettingsScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/SettingsScreen.kt)) to customize report delivery times and quiet/sleep hours.
-- **Background Notification & Testing Improvements**:
-  - **Immediate Channel Registration**: Exposes and registers notification channels inside `MainActivity.onCreate()` rather than delaying until the first worker execution.
-  - **Dynamic Weather Fetch**: If local cached weather is empty (e.g., on first launch), the background worker queries last known location coordinates and fetches fresh weather directly from the repository.
-  - **Reschedule on Startup**: Changed periodic work policy to `ExistingPeriodicWorkPolicy.REPLACE` in `MainActivity` to update the background task configuration and run it immediately on fresh builds.
-  - **"Send Test Notification" Debug Tool**: Added a prominent button in the settings page to immediately post a sample weather notification, confirming that channel priorities and posting permissions are fully operational.
-  - **Compilation & Decoupled Architectural Fix**:
-    - Removed `Context` and notification-related logic from [`WeatherViewModel.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/viewmodel/WeatherViewModel.kt) to restore clean architectural separation.
-    - Implemented the `sendTestNotification()` logic directly within [`MainActivity.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/MainActivity.kt) where `Context` is natively available.
-    - Updated [`HomeScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/HomeScreen.kt) to accept `onSendTestNotification` and pass it to `SettingsScreen`.
-    - Reverted test parameters inside [`WeatherViewModelTest.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/test/java/com/weatherinsights/WeatherViewModelTest.kt) by deleting invalid `mockContext` parameters.
-    - Cleared build caches via `./gradlew clean` and verified all project builds and unit tests pass successfully.
-- **HomeScreen Test Notification Button**:
-  - Added a temporary test notification icon button (`Icons.Rounded.NotificationsActive`) in the header `Row` of [`WeatherTimeline.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/components/WeatherTimeline.kt).
-  - Wired this button callback parameter through [`HomeScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/HomeScreen.kt) to [`MainActivity.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/MainActivity.kt)'s `sendTestNotification()` implementation.
-
-## Phase 7: Exact Alarm Scheduling & Health Alerts Removal
-- **Permission & Declarations**:
-  - Declared `android.permission.SCHEDULE_EXACT_ALARM` in [`AndroidManifest.xml`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/AndroidManifest.xml).
-  - Registered [`WeatherNotificationReceiver`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/receiver/WeatherNotificationReceiver.kt) as a broadcast receiver in [`AndroidManifest.xml`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/AndroidManifest.xml).
-- **Alarms Scheduling System**:
-  - Created [`AlarmScheduler.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/receiver/AlarmScheduler.kt) helper utility to set or cancel exact wakeup alarms via Android's `AlarmManager`.
-  - Created [`WeatherNotificationReceiver.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/receiver/WeatherNotificationReceiver.kt) to receive alarms, execute immediate one-time WorkManager reports via `WeatherNotificationWorker`, and schedule the next alarm for the following day.
-- **Worker Refactoring**:
-  - Updated [`WeatherNotificationWorker.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/worker/WeatherNotificationWorker.kt) to distinguish direct report triggers (evaluates only morning/evening report when requested via AlarmManager input data) from periodic runs (only handles critical alerts and caching updates).
-- **Preferences & UI Cleanups**:
-  - Deleted `healthAlertsEnabled` preference option from [`NotificationPreferences.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/data/model/NotificationPreferences.kt).
-  - Removed "Health and Allergy Alerts" toggle row completely from [`SettingsScreen.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/ui/screens/SettingsScreen.kt).
-  - Integrated dynamic alarm scheduling inside [`MainActivity.kt`](file:///Users/eneszengin/Desktop/workspace/weather-insights-android/app/src/main/kotlin/com/weatherinsights/MainActivity.kt)'s preferences change observer `LaunchedEffect`.
-  - Ran build caches clean up and verified all test suites compile and pass successfully.
+## Phase 9: Reels-Style Vertical Page Navigation
+- `ui/components/WeatherTimeline.kt`: replaced static layout with a `VerticalPager` across `ForecastDay` items. Swiping vertically transitions the entire layout (background + header + timeline + details) per day. Added the day label ("Today", "Friday", etc.) under the city name in smaller semi-transparent font.
+- `ui/components/WeatherTimeline.kt`: added vertical dot pager indicators on the right side of the screen using `animateDpAsState` for active height stretching (vertical pill shape) and `animateFloatAsState` for active/inactive opacity.
+- `ui/util/BackgroundColorUtil.kt`: added `getDynamicBackgroundColorForDay` to compute dynamic day/night colors on a per-day basis, using it for the full-bleed page backgrounds.
+- Deleted `DailyForecastRow.kt` (safe deletion of redundant code).
+- Verified compilation and test suite (all tests pass).
