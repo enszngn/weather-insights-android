@@ -193,7 +193,7 @@ internal fun WeatherContent(
                         )
                     }
 
-                    // Timeline panel (centre 35%)
+                    // Timeline panel (center 35%)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
