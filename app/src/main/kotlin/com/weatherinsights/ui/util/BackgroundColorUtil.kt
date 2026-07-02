@@ -2,6 +2,7 @@ package com.weatherinsights.ui.util
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import com.weatherinsights.data.model.ForecastDay
 import com.weatherinsights.ui.viewmodel.WeatherUiState
 import kotlin.math.abs
 
@@ -13,26 +14,51 @@ import kotlin.math.abs
  * midnight blue (#001533) at midnight, creating a natural day/night gradient.
  */
 fun getDynamicBackgroundColor(uiState: WeatherUiState): Color {
+    return when (uiState) {
+        is WeatherUiState.Success -> {
+            val currentDay = uiState.weatherData.forecast.firstOrNull()
+            if (currentDay != null) {
+                getDynamicBackgroundColorForDay(currentDay)
+            } else {
+                Color(0xFF009AFF)
+            }
+        }
+        else -> {
+            val now = java.time.LocalTime.now()
+            val hour = now.hour
+            val minute = now.minute
+            val currentAbsoluteHour = hour + (minute / 60.0)
+            val sunrise = 6.0
+            val sunset = 20.0
+            val dayLength = sunset - sunrise
+            val midDay = sunrise + dayLength / 2.0
+            val diff = abs(currentAbsoluteHour - midDay) % 24.0
+            val circularDistance = if (diff > 12.0) 24.0 - diff else diff
+            val factor = (circularDistance / 12.0).toFloat().coerceIn(0f, 1f)
+            lerp(Color(0xFF009AFF), Color(0xFF001533), factor)
+        }
+    }
+}
+
+/**
+ * Computes the dynamic background color for a specific ForecastDay using the current time of day.
+ */
+fun getDynamicBackgroundColorForDay(day: ForecastDay): Color {
     val now = java.time.LocalTime.now()
     val hour = now.hour
     val minute = now.minute
     val currentAbsoluteHour = hour + (minute / 60.0)
 
-    val (sunrise, sunset) = when (uiState) {
-        is WeatherUiState.Success -> {
-            val currentDay = uiState.weatherData.forecast.firstOrNull()
-            val rTime = currentDay?.sunrise
-            val sTime = currentDay?.sunset
+    val rTime = day.sunrise
+    val sTime = day.sunset
 
-            val rHour = rTime?.substringBefore(":")?.toIntOrNull() ?: 6
-            val rMin = rTime?.substringAfter(":")?.toIntOrNull() ?: 0
-            val sHour = sTime?.substringBefore(":")?.toIntOrNull() ?: 20
-            val sMin = sTime?.substringAfter(":")?.toIntOrNull() ?: 0
+    val rHour = rTime?.substringBefore(":")?.toIntOrNull() ?: 6
+    val rMin = rTime?.substringAfter(":")?.toIntOrNull() ?: 0
+    val sHour = sTime?.substringBefore(":")?.toIntOrNull() ?: 20
+    val sMin = sTime?.substringAfter(":")?.toIntOrNull() ?: 0
 
-            (rHour + (rMin / 60.0)) to (sHour + (sMin / 60.0))
-        }
-        else -> 6.0 to 20.0
-    }
+    val sunrise = rHour + (rMin / 60.0)
+    val sunset = sHour + (sMin / 60.0)
 
     val dayLength = if (sunset > sunrise) sunset - sunrise else 24.0 - (sunrise - sunset)
     val midDay = (sunrise + dayLength / 2.0) % 24.0

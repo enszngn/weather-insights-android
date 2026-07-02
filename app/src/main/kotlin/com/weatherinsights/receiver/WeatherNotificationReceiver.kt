@@ -36,21 +36,26 @@ class WeatherNotificationReceiver : BroadcastReceiver() {
 
         WorkManager.getInstance(context.applicationContext).enqueue(workRequest)
 
-        // 2. Reschedule the alarm for the next day
-        kotlinx.coroutines.runBlocking {
-            val prefs = localSource.getNotificationPreferences()
-            val timeString = when (reportType) {
-                AlarmScheduler.REPORT_MORNING -> {
-                    if (prefs.morningReportEnabled) prefs.morningReportTime else null
+        // 2. Reschedule the alarm for the next day (non-blocking)
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val prefs = localSource.getNotificationPreferences()
+                val timeString = when (reportType) {
+                    AlarmScheduler.REPORT_MORNING -> {
+                        if (prefs.morningReportEnabled) prefs.morningReportTime else null
+                    }
+                    AlarmScheduler.REPORT_EVENING -> {
+                        if (prefs.eveningReportEnabled) prefs.eveningReportTime else null
+                    }
+                    else -> null
                 }
-                AlarmScheduler.REPORT_EVENING -> {
-                    if (prefs.eveningReportEnabled) prefs.eveningReportTime else null
+                
+                if (timeString != null) {
+                    AlarmScheduler.scheduleReportAlarm(context.applicationContext, reportType, timeString)
                 }
-                else -> null
-            }
-            
-            if (timeString != null) {
-                AlarmScheduler.scheduleReportAlarm(context.applicationContext, reportType, timeString)
+            } finally {
+                pendingResult.finish()
             }
         }
     }

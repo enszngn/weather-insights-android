@@ -2,10 +2,13 @@ package com.weatherinsights.ui.components
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +22,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.rounded.Air
@@ -44,11 +50,15 @@ import com.weatherinsights.data.model.TimelineEntry
 import com.weatherinsights.data.model.WeatherData
 import com.weatherinsights.ui.theme.TextPrimary
 import com.weatherinsights.ui.util.WeatherMapper
+import com.weatherinsights.ui.util.getDynamicBackgroundColorForDay
+import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * Root composable for the weather success state. Renders the city header, the scrollable
- * 24-hour timeline panel, and the wind speed dashboard at the bottom.
+ * Root composable for the weather success state. Renders a vertical pager that allows the user
+ * to swipe between different forecast days like Instagram Reels.
  */
 @Composable
 internal fun WeatherContent(
@@ -58,155 +68,214 @@ internal fun WeatherContent(
     isRefreshing: Boolean,
     onOpenSettings: () -> Unit
 ) {
-    val currentDay = weatherData.forecast.firstOrNull()
-    val currentTemp = currentDay?.temp ?: 0.0
-    val currentWindSpeed = currentDay?.windSpeed ?: 0.0
+    val forecast = weatherData.forecast
+    val pagerState = rememberPagerState(pageCount = { forecast.size })
 
-    val currentHour = java.time.LocalTime.now().hour
-    val finalTimeline = buildTimeline(weatherData, currentHour)
+    Box(modifier = Modifier.fillMaxSize()) {
+        VerticalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { pageIndex ->
+            val selectedDay = forecast[pageIndex]
+            val currentTemp = selectedDay.temp
+            val currentWindSpeed = selectedDay.windSpeed
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        // Header: city name + current temperature (top 20%)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(0.2f),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+            val currentHour = java.time.LocalTime.now().hour
+            val finalTimeline = buildTimelineForDay(weatherData, pageIndex, currentHour)
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(getDynamicBackgroundColorForDay(selectedDay))
             ) {
-                Text(
-                    text = weatherData.locationName,
-                    fontSize = 44.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    letterSpacing = 0.5.sp,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-
-                // Infinite rotation when actively refreshing
-                val infiniteTransition = rememberInfiniteTransition(label = "refresh_spin")
-                val rotation by infiniteTransition.animateFloat(
-                    initialValue = 0f,
-                    targetValue = 360f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(durationMillis = 700, easing = LinearEasing),
-                        repeatMode = RepeatMode.Restart
-                    ),
-                    label = "refresh_rotation"
-                )
-
-                val buttonEnabled = canRefresh && !isRefreshing
-                IconButton(
-                    onClick = { if (buttonEnabled) onRefresh() },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .alpha(if (buttonEnabled) 1f else 0.35f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = when {
-                            isRefreshing -> "Refreshing..."
-                            !canRefresh -> "Refresh limit reached"
-                            else -> "Refresh weather"
-                        },
-                        tint = TextPrimary,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .rotate(if (isRefreshing) rotation else 0f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(4.dp))
-                IconButton(
-                    onClick = onOpenSettings,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Settings,
-                        contentDescription = "Settings",
-                        tint = TextPrimary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${currentTemp.roundToInt()}°",
-                fontSize = 64.sp,
-                fontWeight = FontWeight.Light,
-                color = TextPrimary
-            )
-        }
-
-        // Timeline panel (centre 60%)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(0.6f)
-                .padding(vertical = 16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            GlassyPanel(modifier = Modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp)
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Horizontal scrollable row for the full multi-day forecast
-                    DailyForecastRow(
-                        forecast = weatherData.forecast,
+                    // Header: city name + current day + temperature (top 20%)
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 12.dp)
-                    )
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                            .weight(0.2f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        items(finalTimeline) { entry ->
-                            TimelineRow(entry)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = weatherData.locationName,
+                                fontSize = 44.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary,
+                                letterSpacing = 0.5.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            // Infinite rotation when actively refreshing
+                            val infiniteTransition = rememberInfiniteTransition(label = "refresh_spin")
+                            val rotation by infiniteTransition.animateFloat(
+                                initialValue = 0f,
+                                targetValue = 360f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(durationMillis = 700, easing = LinearEasing),
+                                    repeatMode = RepeatMode.Restart
+                                ),
+                                label = "refresh_rotation"
+                            )
+
+                            val buttonEnabled = canRefresh && !isRefreshing
+                            IconButton(
+                                onClick = { if (buttonEnabled) onRefresh() },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .alpha(if (buttonEnabled) 1f else 0.35f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = when {
+                                        isRefreshing -> "Refreshing..."
+                                        !canRefresh -> "Refresh limit reached"
+                                        else -> "Refresh weather"
+                                    },
+                                    tint = TextPrimary,
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .rotate(if (isRefreshing) rotation else 0f)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(4.dp))
+                            IconButton(
+                                onClick = onOpenSettings,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Settings,
+                                    contentDescription = "Settings",
+                                    tint = TextPrimary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(2.dp))
+                        val dayLabel = if (pageIndex == 0) {
+                            "Today"
+                        } else {
+                            runCatching { LocalDate.parse(selectedDay.date) }
+                                .map { it.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault()) }
+                                .getOrDefault(selectedDay.date)
+                        }
+                        Text(
+                            text = dayLabel,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = TextPrimary.copy(alpha = 0.8f),
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "${currentTemp.roundToInt()}°",
+                            fontSize = 64.sp,
+                            fontWeight = FontWeight.Light,
+                            color = TextPrimary
+                        )
+                    }
+
+                    // Timeline panel (centre 60%)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(0.6f)
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        GlassyPanel(modifier = Modifier.fillMaxSize()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp)
+                            ) {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    items(finalTimeline) { entry ->
+                                        TimelineRow(entry)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Bottom: wind speed dashboard (bottom 20%)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(0.2f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Air,
+                                contentDescription = "Wind icon",
+                                tint = Color.White,
+                                modifier = Modifier.size(54.dp)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "${currentWindSpeed.roundToInt()} km/h",
+                                fontSize = 26.sp,
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
             }
         }
 
-        // Bottom: wind speed dashboard (bottom 20%)
-        Box(
+        // Pager indicators (vertical dots on the right side)
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(0.2f),
-            contentAlignment = Alignment.Center
+                .align(Alignment.CenterEnd)
+                .padding(end = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Air,
-                    contentDescription = "Wind icon",
-                    tint = Color.White,
-                    modifier = Modifier.size(54.dp)
+            repeat(forecast.size) { index ->
+                val isActive = pagerState.currentPage == index
+                
+                val width = 6.dp
+                val height by animateDpAsState(
+                    targetValue = if (isActive) 12.dp else 6.dp,
+                    animationSpec = tween(durationMillis = 250),
+                    label = "indicator_height"
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "${currentWindSpeed.roundToInt()} km/h",
-                    fontSize = 26.sp,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
+                val alpha by animateFloatAsState(
+                    targetValue = if (isActive) 1.0f else 0.4f,
+                    animationSpec = tween(durationMillis = 250),
+                    label = "indicator_alpha"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .width(width)
+                        .height(height)
+                        .alpha(alpha)
+                        .background(Color.White, shape = CircleShape)
                 )
             }
         }
@@ -215,11 +284,14 @@ internal fun WeatherContent(
 
 /**
  * Merges hourly forecasts with solar events (sunrise/sunset) into a single chronologically
- * sorted list, spanning the next 24 hours from [currentHour].
+ * sorted list, spanning 24 hours from the start hour (current hour for today, midnight for future days).
  */
-private fun buildTimeline(weatherData: WeatherData, currentHour: Int): List<TimelineEntry> {
-    // Flatten hourly data from the first two days (to support day-boundary crossings)
-    val allHourly = weatherData.forecast.take(2).flatMapIndexed { dayIdx, forecastDay ->
+private fun buildTimelineForDay(weatherData: WeatherData, dayIndex: Int, currentHour: Int): List<TimelineEntry> {
+    val targetForecast = weatherData.forecast.drop(dayIndex).take(2)
+    if (targetForecast.isEmpty()) return emptyList()
+
+    // Flatten hourly data from the target day and the day after (to support day-boundary crossings)
+    val allHourly = targetForecast.flatMapIndexed { dayIdx, forecastDay ->
         forecastDay.hourly.map { hourly ->
             val hour = hourly.time.substringBefore(":").toIntOrNull() ?: 0
             (dayIdx * 24 + hour) to hourly
@@ -227,7 +299,7 @@ private fun buildTimeline(weatherData: WeatherData, currentHour: Int): List<Time
     }
 
     // Compute absolute hour positions for sunset/sunrise events
-    val sunsets = weatherData.forecast.take(2).mapIndexedNotNull { dayIdx, forecastDay ->
+    val sunsets = targetForecast.mapIndexedNotNull { dayIdx, forecastDay ->
         forecastDay.sunset?.let { timeStr ->
             val time = com.weatherinsights.data.util.TimeUtils.parseTimeToHourMinute(timeStr)
             val h = time?.first ?: 20
@@ -235,7 +307,7 @@ private fun buildTimeline(weatherData: WeatherData, currentHour: Int): List<Time
             (dayIdx * 24 + h + m / 60.0) to timeStr
         }
     }
-    val sunrises = weatherData.forecast.take(2).mapIndexedNotNull { dayIdx, forecastDay ->
+    val sunrises = targetForecast.mapIndexedNotNull { dayIdx, forecastDay ->
         forecastDay.sunrise?.let { timeStr ->
             val time = com.weatherinsights.data.util.TimeUtils.parseTimeToHourMinute(timeStr)
             val h = time?.first ?: 5
@@ -244,10 +316,15 @@ private fun buildTimeline(weatherData: WeatherData, currentHour: Int): List<Time
         }
     }
 
-    // Filter to the 24 hours starting from now
-    val hoursToDisplay = allHourly.filter { (absHour, _) -> absHour >= currentHour }.take(24)
-    val minHour = hoursToDisplay.firstOrNull()?.first?.toDouble() ?: currentHour.toDouble()
-    val maxHour = hoursToDisplay.lastOrNull()?.first?.toDouble() ?: (currentHour + 23).toDouble()
+    // Start at currentHour for today, start at 00:00 (midnight) for future days
+    val startHour = if (dayIndex == 0) currentHour else 0
+
+    // Filter to the 24 hours starting from startHour
+    val hoursToDisplay = allHourly.filter { (absHour, _) -> absHour >= startHour }.take(24)
+    if (hoursToDisplay.isEmpty()) return emptyList()
+
+    val minHour = hoursToDisplay.first().first.toDouble()
+    val maxHour = hoursToDisplay.last().first.toDouble()
 
     // Merge hourly entries and solar events into one list
     val merged = mutableListOf<Pair<Double, TimelineEntry>>()
@@ -335,10 +412,6 @@ private fun HourRow(entry: TimelineEntry.Hour) {
     }
 }
 
-/**
- * Shared layout for sunrise and sunset timeline entries. The original [HomeScreen.kt]
- * had duplicate code for these two cases; this composable eliminates that duplication.
- */
 @Composable
 private fun SolarEventRow(time: String, icon: ImageVector, label: String) {
     Row(
