@@ -125,4 +125,5 @@ Historical log of major changes. One line per change; see `task.md` for the chec
 - `ui/components/GlassyPanel.kt`: changed default `cornerRadius` parameter from `0.dp` (sharp) to `12.dp` (subtly rounded) to make all card corners throughout the app look more circleish and modern.
 - `ui/components/WeatherTimeline.kt`: compacted the hourly weather horizontal timeline by ~40% by reducing the glassy card height from `180.dp` to `130.dp`, vertical spacing from `8.dp` to `4.dp`, item widths from `64.dp` to `52.dp`, horizontal padding from `12.dp` to `6.dp`, and scaling down text sizes (e.g., time to `12.sp`, temp to `15.sp`) and icon size to `24.dp`.
 - `ui/components/WeatherTimeline.kt`: shifted the horizontal timeline panel upwards by changing layout weights (timeline weight from `0.6f` to `0.35f` and bottom dashboard weight from `0.2f` to `0.45f`), positioning the card center at 37.5% from the top.
+- `app/build.gradle.kts`: updated the app's `versionName` to `1.0.0`.
 - Verified compilation and test suite (all tests pass).

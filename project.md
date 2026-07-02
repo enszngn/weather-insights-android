@@ -99,6 +99,7 @@ Tests: `app/src/test/java/com/weatherinsights/` (WeatherRepositoryTest, WeatherV
 - [x] Phase 9.7: Make glassy panel card corners subtly rounded (12.dp corner radius)
 - [x] Phase 9.8: Compact hourly weather tab (reduced panel height, item widths, padding, and text/icon sizing)
 - [x] Phase 9.9: Reposition hourly weather timeline panel higher up (centered at 37.5% vertically from top)
+- [x] Project: Update app version to 1.0.0 in build.gradle.kts
 
 ## Not Started (from original roadmap, never completed)
 
