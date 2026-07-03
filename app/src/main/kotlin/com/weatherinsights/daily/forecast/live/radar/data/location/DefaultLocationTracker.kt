@@ -1,6 +1,7 @@
 package com.weatherinsights.daily.forecast.live.radar.data.location
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
@@ -28,6 +29,7 @@ class DefaultLocationTracker @Inject constructor(
         return hasFine || hasCoarse
     }
 
+    @SuppressLint("MissingPermission")
     override suspend fun getCurrentLocation(forceRefresh: Boolean): LocationData? {
         if (!hasPermission()) return null
 

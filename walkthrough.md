@@ -128,3 +128,7 @@ Historical log of major changes. One line per change; see `task.md` for the chec
 - `app/build.gradle.kts`: updated the app's `versionName` to `1.0.0`.
 - `app/build.gradle.kts`: raised the app's `minSdk` to `26`.
 - Verified compilation and test suite (all tests pass).
+
+## Bugfix: Android Lint MissingPermission Errors
+- Added `@SuppressLint("MissingPermission")` to `getCurrentLocation` in `DefaultLocationTracker.kt` to suppress static compile-time lint warnings since permission checks are dynamically verified inside the function.
+- Verified `./gradlew build` compiles and passes all checks.
