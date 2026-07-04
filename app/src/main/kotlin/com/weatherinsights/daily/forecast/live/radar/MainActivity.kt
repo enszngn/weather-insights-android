@@ -147,7 +147,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onRequestPermission = {
-                                    openAppSystemSettings()
+                                    openAppSystemPermissions()
                                 },
                                 onRetry = {
                                     viewModel.loadWeather()
@@ -177,6 +177,17 @@ class MainActivity : ComponentActivity() {
         isNotificationGranted.value = hasNotificationPermission()
         if (viewModel.isWelcomeCompleted.value == true) {
             syncAlarms(viewModel.notificationPreferences.value)
+        }
+    }
+
+    private fun openAppSystemPermissions() {
+        try {
+            val intent = Intent("android.intent.action.MANAGE_APP_PERMISSIONS").apply {
+                putExtra(Intent.EXTRA_PACKAGE_NAME, packageName)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            openAppSystemSettings()
         }
     }
 
