@@ -25,8 +25,8 @@ object WeatherMapper {
             0 -> Icons.Rounded.WbSunny
             1, 2, 3 -> Icons.Rounded.Cloud
             45, 48 -> Icons.Rounded.Grain // Foggy/Mist representation
-            51, 53, 55 -> Icons.Rounded.WaterDrop // Drizzle
-            61, 63, 65, 80, 81, 82 -> Icons.Rounded.WaterDrop // Rainy
+            51, 53, 55 -> Icons.Rounded.Thunderstorm // Drizzle
+            61, 63, 65, 80, 81, 82 -> Icons.Rounded.Thunderstorm // Rainy
             71, 73, 75, 77, 85, 86 -> Icons.Rounded.AcUnit // Snowy
             95, 96, 99 -> Icons.Rounded.Thunderstorm // Thunderstorm
             else -> Icons.Rounded.WbSunny

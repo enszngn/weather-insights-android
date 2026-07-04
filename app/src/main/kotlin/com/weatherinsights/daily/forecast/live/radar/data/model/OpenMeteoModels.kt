@@ -33,7 +33,8 @@ data class OpenMeteoHourly(
     @SerialName("temperature_2m") val temperature2m: List<Double>,
     @SerialName("relative_humidity_2m") val relativeHumidity2m: List<Int>,
     @SerialName("wind_speed_10m") val windSpeed10m: List<Double>,
-    @SerialName("weather_code") val weatherCode: List<Int>
+    @SerialName("weather_code") val weatherCode: List<Int>,
+    @SerialName("precipitation_probability") val precipitationProbability: List<Int>? = null
 )
 
 @Serializable

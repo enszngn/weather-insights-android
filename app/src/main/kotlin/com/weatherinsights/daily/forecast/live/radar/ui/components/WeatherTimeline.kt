@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,12 +27,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.rounded.Air
 import androidx.compose.material.icons.rounded.WbTwilight
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material.icons.rounded.Thunderstorm
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.IconButton
@@ -239,34 +244,42 @@ internal fun WeatherContent(
                         }
                     }
 
-                    // Bottom: wind speed dashboard (bottom 45%)
-                    Box(
+                    // Bottom: 3 metric panels (bottom 45%)
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(0.45f),
-                        contentAlignment = Alignment.Center
+                            .weight(0.45f)
+                            .padding(vertical = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Air,
-                                contentDescription = "Wind icon",
-                                tint = Color.White,
-                                modifier = Modifier.size(54.dp)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "${currentWindSpeed.roundToInt()} km/h",
-                                fontSize = 26.sp,
-                                color = TextPrimary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        val currentHumidity = selectedDay.humidity
+                        val currentUv = selectedDay.uvIndex
+
+                        MetricPanel(
+                            icon = Icons.Rounded.WaterDrop,
+                            iconColor = Color(0xFF81D4FA),
+                            title = "Humidity",
+                            value = "${currentHumidity}%",
+                            progress = currentHumidity / 100f,
+                            progressBarColor = Color(0xFF81D4FA)
+                        )
+
+                        MetricPanel(
+                            icon = Icons.Rounded.Air,
+                            iconColor = Color.White,
+                            title = "Wind",
+                            value = "${currentWindSpeed.roundToInt()} km/h"
+                        )
+
+                        MetricPanel(
+                            icon = Icons.Rounded.WbSunny,
+                            iconColor = Color(0xFFFFD166),
+                            title = "UV Index",
+                            value = "${currentUv.roundToInt()}",
+                            progress = (currentUv / 12.0).coerceIn(0.0, 1.0).toFloat(),
+                            progressBarColor = Color(0xFFFFD166)
+                        )
                     }
                 }
             }
@@ -409,17 +422,17 @@ private fun HourColumn(entry: TimelineEntry.Hour) {
             horizontalArrangement = Arrangement.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.WaterDrop,
-                contentDescription = "Humidity",
-                tint = Color.White,
+                imageVector = Icons.Rounded.Thunderstorm,
+                contentDescription = "Precipitation Probability",
+                tint = Color(0xFF81D4FA),
                 modifier = Modifier.size(8.dp)
             )
             Spacer(modifier = Modifier.width(2.dp))
             Text(
-                text = "%${item.humidity}",
+                text = "${item.precipitationProbability}%",
                 fontSize = 9.sp,
-                color = Color.White,
-                fontWeight = FontWeight.Normal
+                color = Color(0xFF81D4FA),
+                fontWeight = FontWeight.Medium
             )
         }
         Text(
@@ -452,7 +465,7 @@ private fun SolarEventColumn(time: String, icon: ImageVector, label: String) {
             tint = Color(0xFFFFD166),
             modifier = Modifier.size(24.dp)
         )
-        // Humidity row equivalent space-wise to align items horizontally
+        // Spacers equivalent to the Precipitation Probability row (12.dp)
         Box(
             modifier = Modifier.height(12.dp),
             contentAlignment = Alignment.Center
@@ -465,5 +478,71 @@ private fun SolarEventColumn(time: String, icon: ImageVector, label: String) {
             fontWeight = FontWeight.Bold,
             color = Color(0xFFFFD166)
         )
+    }
+}
+
+@Composable
+private fun RowScope.MetricPanel(
+    icon: ImageVector,
+    iconColor: Color,
+    title: String,
+    value: String,
+    progress: Float? = null,
+    progressBarColor: Color = Color.White
+) {
+    GlassyPanel(
+        modifier = Modifier
+            .weight(1f)
+            .height(115.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = iconColor,
+                modifier = Modifier.size(24.dp)
+            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+                Text(
+                    text = value,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+            if (progress != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.15f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction = progress)
+                            .fillMaxHeight()
+                            .background(progressBarColor)
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+        }
     }
 }

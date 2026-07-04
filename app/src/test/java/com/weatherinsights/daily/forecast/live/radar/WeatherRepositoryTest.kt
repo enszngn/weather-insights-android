@@ -11,6 +11,7 @@ import com.weatherinsights.daily.forecast.live.radar.data.network.OpenMeteoApiSe
 import com.weatherinsights.daily.forecast.live.radar.data.network.WeatherApiService
 import com.weatherinsights.daily.forecast.live.radar.data.datasource.WeatherLocalSource
 import com.weatherinsights.daily.forecast.live.radar.data.repository.WeatherRepository
+import com.weatherinsights.daily.forecast.live.radar.data.mapper.toWeatherData
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -185,5 +186,36 @@ class WeatherRepositoryTest {
         val result = repository.fetchWeather(52.52, 13.41).first()
 
         assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun testOpenMeteoMapper_MapsPrecipitationProbabilityCorrectly() {
+        val fakeHourly = OpenMeteoHourly(
+            time = listOf("2026-06-29T12:00"),
+            temperature2m = listOf(20.0),
+            relativeHumidity2m = listOf(50),
+            windSpeed10m = listOf(10.0),
+            weatherCode = listOf(0),
+            precipitationProbability = listOf(75)
+        )
+        val rawResponse = OpenMeteoResponse(
+            latitude = 52.52,
+            longitude = 13.41,
+            generationTimeMs = 0.1,
+            utcOffsetSeconds = 0,
+            timezone = "UTC",
+            timezoneAbbreviation = "UTC",
+            elevation = 10.0,
+            current = OpenMeteoCurrent("2026-06-29T12:00", 900, 20.0, 50, 10.0, 0),
+            hourly = fakeHourly,
+            daily = OpenMeteoDaily(listOf("2026-06-29"), listOf(5.0))
+        )
+
+        val mapped = rawResponse.toWeatherData()
+        val firstDay = mapped.forecast.firstOrNull()
+        org.junit.Assert.assertNotNull(firstDay)
+        val firstHour = firstDay?.hourly?.firstOrNull()
+        org.junit.Assert.assertNotNull(firstHour)
+        assertEquals(75, firstHour?.precipitationProbability)
     }
 }
