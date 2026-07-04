@@ -41,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +60,10 @@ fun SettingsScreen(
     preferences: NotificationPreferences,
     onPreferencesChanged: (NotificationPreferences) -> Unit,
     onBack: () -> Unit,
+    isLocationPermissionGranted: Boolean,
+    isAlarmPermissionGranted: Boolean,
+    onRequestLocationPermission: () -> Unit,
+    onRequestAlarmPermission: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var activeTimePickerFor by remember { mutableStateOf<TimePickerTarget?>(null) }
@@ -92,6 +97,43 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Location Permission Warning Card
+        if (!isLocationPermissionGranted) {
+            GlassyPanel(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Text(
+                        text = "Location permissions will make the app more reliable.",
+                        fontSize = 14.sp,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = onRequestLocationPermission,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Grant Location Permission",
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Black
+                        )
+                    }
+                }
+            }
+        }
+
         // Section 1: Critical & Instant Alerts
         Text(
             text = "Critical Notifications",
@@ -115,15 +157,58 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Section 2: Routine & Daily Summaries
-        Text(
-            text = "Routine Reports",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextSecondary,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
+        // Alarm Permission Warning Card
+        if (!isAlarmPermissionGranted) {
+            GlassyPanel(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Text(
+                        text = "Alarm permission is required for these features.",
+                        fontSize = 14.sp,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = onRequestAlarmPermission,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Grant Alarm Permission",
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.Black
+                        )
+                    }
+                }
+            }
+        }
+
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .alpha(if (isAlarmPermissionGranted) 1.0f else 0.5f)
+            ) {
+                // Section 2: Routine & Daily Summaries
+                Text(
+                    text = "Routine Reports",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                GlassyPanel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 NotificationToggleRow(
                     title = "Morning Report",
@@ -191,6 +276,20 @@ fun SettingsScreen(
                     onCheckedChange = {
                         onPreferencesChanged(preferences.copy(tempShockEnabled = it))
                     }
+                )
+            }
+        }
+
+            }
+            if (!isAlarmPermissionGranted) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
                 )
             }
         }

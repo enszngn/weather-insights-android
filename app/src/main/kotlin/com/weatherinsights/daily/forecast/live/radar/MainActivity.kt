@@ -42,8 +42,16 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: WeatherViewModel by viewModels()
 
+    private val isLocationGranted = mutableStateOf(false)
+    private val isNotificationGranted = mutableStateOf(false)
+    private val isAlarmGranted = mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        isLocationGranted.value = hasLocationPermission()
+        isNotificationGranted.value = hasNotificationPermission()
+        isAlarmGranted.value = hasAlarmPermission()
+
         setContent {
             WeatherInsightsTheme {
                 val uiState by viewModel.uiState.collectAsState()
@@ -53,13 +61,14 @@ class MainActivity : ComponentActivity() {
                 val isWelcomeCompleted by viewModel.isWelcomeCompleted.collectAsState()
 
                 var onboardingStep by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(1) }
-                var isLocationGranted by remember { mutableStateOf(hasLocationPermission()) }
-                var isNotificationGranted by remember { mutableStateOf(hasNotificationPermission()) }
+                val isLocationGrantedVal by isLocationGranted
+                val isNotificationGrantedVal by isNotificationGranted
+                val isAlarmGrantedVal by isAlarmGranted
 
                 val locationLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestMultiplePermissions()
                 ) { permissions ->
-                    isLocationGranted = hasLocationPermission()
+                    isLocationGranted.value = hasLocationPermission()
                     if (isWelcomeCompleted == true) {
                         viewModel.loadWeather()
                     } else {
@@ -70,7 +79,7 @@ class MainActivity : ComponentActivity() {
                 val notificationLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission()
                 ) { isGranted ->
-                    isNotificationGranted = isGranted
+                    isNotificationGranted.value = isGranted
                     viewModel.completeWelcome(notificationsEnabled = isGranted)
                     if (isGranted) {
                         checkAndRequestExactAlarmPermission()
@@ -97,8 +106,8 @@ class MainActivity : ComponentActivity() {
                         false -> {
                             WelcomeScreen(
                                 step = onboardingStep,
-                                isLocationPermissionGranted = isLocationGranted,
-                                isNotificationPermissionGranted = isNotificationGranted,
+                                isLocationPermissionGranted = isLocationGrantedVal,
+                                isNotificationPermissionGranted = isNotificationGrantedVal,
                                 onRequestLocationPermission = {
                                     locationLauncher.launch(
                                         arrayOf(
@@ -138,12 +147,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onRequestPermission = {
-                                    locationLauncher.launch(
-                                        arrayOf(
-                                            Manifest.permission.ACCESS_FINE_LOCATION,
-                                            Manifest.permission.ACCESS_COARSE_LOCATION
-                                        )
-                                    )
+                                    openAppSystemSettings()
                                 },
                                 onRetry = {
                                     viewModel.loadWeather()
@@ -152,7 +156,12 @@ class MainActivity : ComponentActivity() {
                                     viewModel.refresh()
                                 },
                                 canRefresh = canRefresh,
-                                isRefreshing = isRefreshing
+                                isRefreshing = isRefreshing,
+                                isLocationPermissionGranted = isLocationGrantedVal,
+                                isAlarmPermissionGranted = isAlarmGrantedVal,
+                                onRequestAlarmPermission = {
+                                    checkAndRequestExactAlarmPermission()
+                                }
                             )
                         }
                     }
@@ -163,9 +172,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        isLocationGranted.value = hasLocationPermission()
+        isAlarmGranted.value = hasAlarmPermission()
+        isNotificationGranted.value = hasNotificationPermission()
         if (viewModel.isWelcomeCompleted.value == true) {
             syncAlarms(viewModel.notificationPreferences.value)
         }
+    }
+
+    private fun openAppSystemSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:$packageName")
+        }
+        startActivity(intent)
     }
 
     private fun checkAndRequestExactAlarmPermission() {
@@ -206,6 +225,15 @@ class MainActivity : ComponentActivity() {
             ContextCompat.checkSelfPermission(
                 this, Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    private fun hasAlarmPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.canScheduleExactAlarms()
         } else {
             true
         }
