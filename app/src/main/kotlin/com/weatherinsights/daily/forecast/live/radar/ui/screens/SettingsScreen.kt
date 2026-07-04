@@ -277,6 +277,61 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Section 4: Quiet Hours
+                        Text(
+                            text = "Quiet Hours",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "Routine notifications other than critical alerts are silenced during these hours.",
+                                    fontSize = 13.sp,
+                                    color = TextSecondary,
+                                    modifier = Modifier.padding(bottom = 12.dp)
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable { activeTimePickerFor = TimePickerTarget.SleepStart }
+                                            .padding(8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text("Start", fontSize = 14.sp, color = TextSecondary)
+                                        Text(
+                                            text = preferences.sleepStartTime,
+                                            fontSize = 20.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary
+                                        )
+                                    }
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable { activeTimePickerFor = TimePickerTarget.SleepEnd }
+                                            .padding(8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text("End", fontSize = 14.sp, color = TextSecondary)
+                                        Text(
+                                            text = preferences.sleepEndTime,
+                                            fontSize = 20.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     if (!isAlarmPermissionGranted) {
@@ -288,62 +343,6 @@ fun SettingsScreen(
                                     indication = null,
                                     onClick = {}
                                 )
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Section 4: Quiet Hours
-        Text(
-            text = "Quiet Hours",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextSecondary,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Routine notifications other than critical alerts are silenced during these hours.",
-                    fontSize = 13.sp,
-                    color = TextSecondary,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { activeTimePickerFor = TimePickerTarget.SleepStart }
-                            .padding(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Start", fontSize = 14.sp, color = TextSecondary)
-                        Text(
-                            text = preferences.sleepStartTime,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                    }
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { activeTimePickerFor = TimePickerTarget.SleepEnd }
-                            .padding(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("End", fontSize = 14.sp, color = TextSecondary)
-                        Text(
-                            text = preferences.sleepEndTime,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
                         )
                     }
                 }
