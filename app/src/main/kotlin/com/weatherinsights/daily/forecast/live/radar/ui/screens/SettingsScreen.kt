@@ -134,32 +134,9 @@ fun SettingsScreen(
             }
         }
 
-        // Section 1: Critical & Instant Alerts (Always active, does not require exact alarms)
-        Text(
-            text = "Critical Notifications",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextSecondary,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                NotificationToggleRow(
-                    title = "Severe Weather Alerts",
-                    subtitle = "Instant alerts before storms, hurricanes, heavy snow, or hail.",
-                    checked = preferences.criticalAlertsEnabled,
-                    onCheckedChange = {
-                        onPreferencesChanged(preferences.copy(criticalAlertsEnabled = it))
-                    }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
         // Exact Alarm Features block
         if (!isAlarmPermissionGranted) {
-            // Alarm permission is NOT given: wrap Routine, Smart, and Quiet Hours in the warning card
+            // Alarm permission is NOT given: wrap all notification features in the warning card
             GlassyPanel(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Column(
@@ -504,6 +481,29 @@ private fun AlarmFeaturesList(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
+        // Section 1: Critical & Instant Alerts
+        Text(
+            text = "Critical Notifications",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextSecondary,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                NotificationToggleRow(
+                    title = "Severe Weather Alerts",
+                    subtitle = "Instant alerts before storms, hurricanes, heavy snow, or hail.",
+                    checked = preferences.criticalAlertsEnabled,
+                    onCheckedChange = {
+                        onPreferencesChanged(preferences.copy(criticalAlertsEnabled = it))
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
         // Section 2: Routine & Daily Summaries
         Text(
             text = "Routine Reports",
