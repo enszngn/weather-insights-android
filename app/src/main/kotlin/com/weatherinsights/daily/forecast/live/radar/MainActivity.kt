@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
                 val notificationPrefs by viewModel.notificationPreferences.collectAsState()
                 val isWelcomeCompleted by viewModel.isWelcomeCompleted.collectAsState()
 
+                var onboardingStep by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(1) }
                 var isLocationGranted by remember { mutableStateOf(hasLocationPermission()) }
                 var isNotificationGranted by remember { mutableStateOf(hasNotificationPermission()) }
 
@@ -61,6 +62,8 @@ class MainActivity : ComponentActivity() {
                     isLocationGranted = hasLocationPermission()
                     if (isWelcomeCompleted == true) {
                         viewModel.loadWeather()
+                    } else {
+                        onboardingStep = 3
                     }
                 }
 
@@ -68,6 +71,7 @@ class MainActivity : ComponentActivity() {
                     contract = ActivityResultContracts.RequestPermission()
                 ) { isGranted ->
                     isNotificationGranted = isGranted
+                    viewModel.completeWelcome(notificationsEnabled = isGranted)
                 }
 
                 LaunchedEffect(isWelcomeCompleted) {
@@ -89,6 +93,7 @@ class MainActivity : ComponentActivity() {
                         null -> LoadingView()
                         false -> {
                             WelcomeScreen(
+                                step = onboardingStep,
                                 isLocationPermissionGranted = isLocationGranted,
                                 isNotificationPermissionGranted = isNotificationGranted,
                                 onRequestLocationPermission = {
@@ -102,8 +107,13 @@ class MainActivity : ComponentActivity() {
                                 onRequestNotificationPermission = {
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                         notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    } else {
+                                        viewModel.completeWelcome(notificationsEnabled = true)
                                     }
                                 },
+                                onNextStep = { onboardingStep = 2 },
+                                onSkipLocation = { onboardingStep = 3 },
+                                onSkipNotifications = { viewModel.completeWelcome(notificationsEnabled = false) },
                                 onGetStarted = { notificationsEnabled ->
                                     viewModel.completeWelcome(notificationsEnabled)
                                 }
