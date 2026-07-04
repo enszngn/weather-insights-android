@@ -158,3 +158,8 @@ Historical log of major changes. One line per change; see `task.md` for the chec
   - `WeatherViewModel.kt`: Added background reverse geocoding inside `onSuccess` block. If `cityName` is `null` but the returned weather location name is generic (`"Current Location"` or blank), it starts a background coroutine to reverse-geocode the returned coordinates, saves the resolved name to the local cache, and updates the UI state.
   - `WeatherNotificationWorker.kt`: Added the same background reverse-geocoding fallback inside `resolveWeatherData` so background notifications also benefit from resolved location names.
   - `WeatherViewModelTest.kt`: Added `testViewModelInit_LocationNameGeneric_TriggersBackgroundReverseGeocoding` to verify that generic location names are resolved and cached correctly. All tests pass.
+
+## Custom Notification Icon Setup
+- **Problem**: Notifications previously used the Android system's generic warning/danger sign drawable (`android.R.drawable.stat_sys_warning`).
+- **Fix**:
+  - `WeatherNotificationWorker.kt`: Imported `com.weatherinsights.daily.forecast.live.radar.R` and changed the notification builder to use `R.drawable.ic_weather_notification` which the user added under the drawable folder. Verified successful compilation.

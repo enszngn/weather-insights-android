@@ -11,6 +11,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.weatherinsights.daily.forecast.live.radar.MainActivity
+import com.weatherinsights.daily.forecast.live.radar.R
 import com.weatherinsights.daily.forecast.live.radar.data.datasource.WeatherLocalSource
 import com.weatherinsights.daily.forecast.live.radar.data.location.LocationTracker
 import com.weatherinsights.daily.forecast.live.radar.data.model.ForecastDay
@@ -369,7 +370,7 @@ class WeatherNotificationWorker(
         )
 
         val builder = NotificationCompat.Builder(applicationContext, channelId)
-            .setSmallIcon(android.R.drawable.stat_sys_warning)
+            .setSmallIcon(R.drawable.ic_weather_notification)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
