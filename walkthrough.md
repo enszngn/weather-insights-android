@@ -143,7 +143,7 @@ Historical log of major changes. One line per change; see `task.md` for the chec
 ## Welcome Onboarding Page & Worker IP Fallback Fixes
 - `data/datasource/WeatherLocalSource.kt`: added `welcome_completed` flag with DataStore persistence.
 - `ui/viewmodel/WeatherViewModel.kt`: exposed `isWelcomeCompleted` StateFlow. Added `completeWelcome()` to save user notification preferences (opt-in/opt-out) and set onboarding completed status.
-- `ui/screens/WelcomeScreen.kt`: built onboarding page with Compose containing location permission button (fall back to IP notice if denied) and Weather Insights notifications switch.
-- `MainActivity.kt`: routed starting screen between loading, onboarding `WelcomeScreen`, and `HomeScreen`. Removed automatic permission prompt launch from startup.
+- `ui/screens/WelcomeScreen.kt`: built onboarding flow using a 3-page split design. Page 1 displays app info and Get Started; Page 2 requests location permission or fallback with distinct Continue (grey) and Grant (blue) buttons; Page 3 requests notification/alarm settings similarly.
+- `MainActivity.kt`: routed starting screen between loading, onboarding steps, and `HomeScreen`. Configured launchers to advance step indices on permission response.
 - `worker/WeatherNotificationWorker.kt`: resolved background worker location lookup on cache miss when location permission is not granted by calling IP location fallback.
 - `WeatherViewModelTest.kt` & `WeatherRepositoryTest.kt`: updated stubs and added unit tests for onboarding completion and notification preferences logic. All tests compile and pass.
