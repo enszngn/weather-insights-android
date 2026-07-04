@@ -134,163 +134,163 @@ fun SettingsScreen(
             }
         }
 
-        // Section 1: Critical & Instant Alerts
-        Text(
-            text = "Critical Notifications",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextSecondary,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+        // Alarm Features Group Card (wraps Critical, Routine, and Smart notifications)
         GlassyPanel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
-                NotificationToggleRow(
-                    title = "Severe Weather Alerts",
-                    subtitle = "Instant alerts before storms, hurricanes, heavy snow, or hail.",
-                    checked = preferences.criticalAlertsEnabled,
-                    onCheckedChange = {
-                        onPreferencesChanged(preferences.copy(criticalAlertsEnabled = it))
-                    }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Alarm Permission Warning Card
-        if (!isAlarmPermissionGranted) {
-            GlassyPanel(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 20.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text(
-                        text = "Alarm permission is required for these features.",
-                        fontSize = 14.sp,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = onRequestAlarmPermission,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White,
-                            contentColor = Color.Black
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
+                if (!isAlarmPermissionGranted) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        horizontalAlignment = Alignment.Start
                     ) {
                         Text(
-                            text = "Grant Alarm Permission",
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.Black
+                            text = "Alarm permission is required for these features.",
+                            fontSize = 14.sp,
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = onRequestAlarmPermission,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White,
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Grant Alarm Permission",
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.Black
+                            )
+                        }
+                    }
+                }
+
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .alpha(if (isAlarmPermissionGranted) 1.0f else 0.5f)
+                    ) {
+                        // Section 1: Critical & Instant Alerts
+                        Text(
+                            text = "Critical Notifications",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                NotificationToggleRow(
+                                    title = "Severe Weather Alerts",
+                                    subtitle = "Instant alerts before storms, hurricanes, heavy snow, or hail.",
+                                    checked = preferences.criticalAlertsEnabled,
+                                    onCheckedChange = {
+                                        onPreferencesChanged(preferences.copy(criticalAlertsEnabled = it))
+                                    }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Section 2: Routine & Daily Summaries
+                        Text(
+                            text = "Routine Reports",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                NotificationToggleRow(
+                                    title = "Morning Report",
+                                    subtitle = "Daily weather summary and clothing suggestions to start your day.",
+                                    checked = preferences.morningReportEnabled,
+                                    onCheckedChange = {
+                                        onPreferencesChanged(preferences.copy(morningReportEnabled = it))
+                                    }
+                                )
+                                if (preferences.morningReportEnabled) {
+                                    TimeConfigurationRow(
+                                        label = "Report Time",
+                                        time = preferences.morningReportTime,
+                                        onClick = { activeTimePickerFor = TimePickerTarget.MorningReport }
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                NotificationToggleRow(
+                                    title = "Evening Report",
+                                    subtitle = "Summary enabling planning based on tomorrow's weather.",
+                                    checked = preferences.eveningReportEnabled,
+                                    onCheckedChange = {
+                                        onPreferencesChanged(preferences.copy(eveningReportEnabled = it))
+                                    }
+                                )
+                                if (preferences.eveningReportEnabled) {
+                                    TimeConfigurationRow(
+                                        label = "Report Time",
+                                        time = preferences.eveningReportTime,
+                                        onClick = { activeTimePickerFor = TimePickerTarget.EveningReport }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Section 3: Smart & Situational Alerts
+                        Text(
+                            text = "Smart Notifications",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                NotificationToggleRow(
+                                    title = "Weekend Summary",
+                                    subtitle = "Weekend weather forecast report sent on Friday afternoon.",
+                                    checked = preferences.weekendSummaryEnabled,
+                                    onCheckedChange = {
+                                        onPreferencesChanged(preferences.copy(weekendSummaryEnabled = it))
+                                    }
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                NotificationToggleRow(
+                                    title = "Temperature Shock Alert",
+                                    subtitle = "Warns when there is a 10-degree temperature difference compared to the previous day.",
+                                    checked = preferences.tempShockEnabled,
+                                    onCheckedChange = {
+                                        onPreferencesChanged(preferences.copy(tempShockEnabled = it))
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    if (!isAlarmPermissionGranted) {
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable(
+                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = {}
+                                )
                         )
                     }
                 }
-            }
-        }
-
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .alpha(if (isAlarmPermissionGranted) 1.0f else 0.5f)
-            ) {
-                // Section 2: Routine & Daily Summaries
-                Text(
-                    text = "Routine Reports",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextSecondary,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                GlassyPanel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                NotificationToggleRow(
-                    title = "Morning Report",
-                    subtitle = "Daily weather summary and clothing suggestions to start your day.",
-                    checked = preferences.morningReportEnabled,
-                    onCheckedChange = {
-                        onPreferencesChanged(preferences.copy(morningReportEnabled = it))
-                    }
-                )
-                if (preferences.morningReportEnabled) {
-                    TimeConfigurationRow(
-                        label = "Report Time",
-                        time = preferences.morningReportTime,
-                        onClick = { activeTimePickerFor = TimePickerTarget.MorningReport }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                NotificationToggleRow(
-                    title = "Evening Report",
-                    subtitle = "Summary enabling planning based on tomorrow's weather.",
-                    checked = preferences.eveningReportEnabled,
-                    onCheckedChange = {
-                        onPreferencesChanged(preferences.copy(eveningReportEnabled = it))
-                    }
-                )
-                if (preferences.eveningReportEnabled) {
-                    TimeConfigurationRow(
-                        label = "Report Time",
-                        time = preferences.eveningReportTime,
-                        onClick = { activeTimePickerFor = TimePickerTarget.EveningReport }
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Section 3: Smart & Situational Alerts
-        Text(
-            text = "Smart Notifications",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextSecondary,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                NotificationToggleRow(
-                    title = "Weekend Summary",
-                    subtitle = "Weekend weather forecast report sent on Friday afternoon.",
-                    checked = preferences.weekendSummaryEnabled,
-                    onCheckedChange = {
-                        onPreferencesChanged(preferences.copy(weekendSummaryEnabled = it))
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                NotificationToggleRow(
-                    title = "Temperature Shock Alert",
-                    subtitle = "Warns when there is a 10-degree temperature difference compared to the previous day.",
-                    checked = preferences.tempShockEnabled,
-                    onCheckedChange = {
-                        onPreferencesChanged(preferences.copy(tempShockEnabled = it))
-                    }
-                )
-            }
-        }
-
-            }
-            if (!isAlarmPermissionGranted) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .clickable(
-                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                            indication = null,
-                            onClick = {}
-                        )
-                )
             }
         }
 
