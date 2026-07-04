@@ -164,12 +164,16 @@ Historical log of major changes. One line per change; see `task.md` for the chec
 - **Fix**:
   - `WeatherNotificationWorker.kt`: Imported `com.weatherinsights.daily.forecast.live.radar.R` and changed the notification builder to use `R.drawable.ic_weather_notification` which the user added under the drawable folder. Verified successful compilation.
 
-## Rain Probability Integration
-- **Goal**: Add rain probability (precipitation probability) to the hourly forecast timeline on the home screen (Issue #8).
+## Rain Probability & Dashboard Panels Integration (Issue #8)
+- **Goal**: Show precipitation probability in the hourly weather forecast timeline instead of humidity, and create 3 detailed glassy metric panels below it to display Humidity, Wind Speed, and UV Index (with horizontal progress tracks for Humidity and UV).
 - **Implementation**:
   - `OpenMeteoApiService.kt`: Updated the Open-Meteo API query to request `precipitation_probability` in the `hourly` query parameters.
   - `OpenMeteoModels.kt`: Added `precipitation_probability` list to `OpenMeteoHourly` data class.
   - `WeatherModels.kt`: Added `precipitationProbability` property (defaulting to `0`) to `HourlyForecast` model to support backward-compatibility.
   - `OpenMeteoMapper.kt`: Mapped `precipitationProbability` from Open-Meteo response into the app's `HourlyForecast` model.
-  - `WeatherTimeline.kt`: Added a new row in `HourColumn` to render precipitation probability with a blue tinted droplet icon. Increased the space-filler height in `SolarEventColumn` to `28.dp` to maintain alignment.
+  - `WeatherTimeline.kt`:
+    - Updated `HourColumn` to render precipitation probability (using the water drop icon and blue tint) and removed the humidity row.
+    - Updated `SolarEventColumn`'s empty Box spacer to `12.dp` height to maintain layout alignment.
+    - Created the `MetricPanel` reusable component with an icon, title, value text, and an optional custom horizontal progress bar.
+    - Replaced the bottom wind speed dashboard with a horizontal `Row` containing three instances of `MetricPanel` for **Humidity** (with a progress bar from 0% to 100%), **Wind Speed** (without progress bar), and **UV Index** (with a progress bar from 0 to 12).
   - `WeatherRepositoryTest.kt`: Added `testOpenMeteoMapper_MapsPrecipitationProbabilityCorrectly` to verify correct mapper behavior. All unit tests compiled and passed.
