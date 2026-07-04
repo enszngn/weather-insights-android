@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.WbTwilight
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material.icons.rounded.Thunderstorm
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.IconButton
@@ -421,7 +422,7 @@ private fun HourColumn(entry: TimelineEntry.Hour) {
             horizontalArrangement = Arrangement.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.WaterDrop,
+                imageVector = Icons.Rounded.Thunderstorm,
                 contentDescription = "Precipitation Probability",
                 tint = Color(0xFF81D4FA),
                 modifier = Modifier.size(8.dp)
