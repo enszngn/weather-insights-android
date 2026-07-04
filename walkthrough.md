@@ -172,8 +172,9 @@ Historical log of major changes. One line per change; see `task.md` for the chec
   - `WeatherModels.kt`: Added `precipitationProbability` property (defaulting to `0`) to `HourlyForecast` model to support backward-compatibility.
   - `OpenMeteoMapper.kt`: Mapped `precipitationProbability` from Open-Meteo response into the app's `HourlyForecast` model.
   - `WeatherTimeline.kt`:
-    - Updated `HourColumn` to render precipitation probability (using the water drop icon and blue tint) and removed the humidity row.
+    - Updated `HourColumn` to render precipitation probability (using the `Icons.Rounded.Thunderstorm` raining cloud icon and blue tint) and removed the humidity row.
     - Updated `SolarEventColumn`'s empty Box spacer to `12.dp` height to maintain layout alignment.
     - Created the `MetricPanel` reusable component with an icon, title, value text, and an optional custom horizontal progress bar.
     - Replaced the bottom wind speed dashboard with a horizontal `Row` containing three instances of `MetricPanel` for **Humidity** (with a progress bar from 0% to 100%), **Wind Speed** (without progress bar), and **UV Index** (with a progress bar from 0 to 12).
+  - `WeatherMapper.kt`: Mapped drizzle and rainy weather codes to `Icons.Rounded.Thunderstorm` (raining cloud icon) instead of `Icons.Rounded.WaterDrop`.
   - `WeatherRepositoryTest.kt`: Added `testOpenMeteoMapper_MapsPrecipitationProbabilityCorrectly` to verify correct mapper behavior. All unit tests compiled and passed.
