@@ -150,3 +150,11 @@ Historical log of major changes. One line per change; see `task.md` for the chec
 - `receiver/AlarmScheduler.kt`: implemented non-exact scheduling fallback (`setAndAllowWhileIdle`) on Android S+ when exact alarm permission is missing.
 - `worker/WeatherNotificationWorker.kt`: resolved background worker location lookup on cache miss when location permission is not granted by calling IP location fallback.
 - `WeatherViewModelTest.kt` & `WeatherRepositoryTest.kt`: updated stubs and added unit tests for onboarding completion and notification preferences logic. All tests compile and pass.
+
+## Client-Side Geocoding Fallback for Generic Location Names
+- **Problem**: When using IP-based location fallback or when client-side geocoding initially fails/times out, the app could display the generic name "Current Location" instead of the resolved city or region name.
+- **Fix**:
+  - `WeatherRepository.kt`: Modified 404 cache miss block to parse `WorkerErrorResponse` for `resolvedLocationName` even if coordinates were passed, allowing the app to fallback to the IP location name if client-side geocoding failed.
+  - `WeatherViewModel.kt`: Added background reverse geocoding inside `onSuccess` block. If `cityName` is `null` but the returned weather location name is generic (`"Current Location"` or blank), it starts a background coroutine to reverse-geocode the returned coordinates, saves the resolved name to the local cache, and updates the UI state.
+  - `WeatherNotificationWorker.kt`: Added the same background reverse-geocoding fallback inside `resolveWeatherData` so background notifications also benefit from resolved location names.
+  - `WeatherViewModelTest.kt`: Added `testViewModelInit_LocationNameGeneric_TriggersBackgroundReverseGeocoding` to verify that generic location names are resolved and cached correctly. All tests pass.

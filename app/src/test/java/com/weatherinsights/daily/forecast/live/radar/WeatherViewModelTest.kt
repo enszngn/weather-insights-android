@@ -460,4 +460,32 @@ class WeatherViewModelTest {
         assertTrue(!prefs.weekendSummaryEnabled)
         assertTrue(!prefs.tempShockEnabled)
     }
+
+    @Test
+    fun testViewModelInit_LocationNameGeneric_TriggersBackgroundReverseGeocoding() = runTest {
+        val dummyData = WeatherData("Current Location", 39.93, 32.85, emptyList())
+        val fakeLocationTracker = FakeLocationTracker().apply {
+            locationPermissionGranted = false
+            locationResult = null
+            cityNameResult = "Ankara"
+        }
+        val fakeWeatherApi = FakeWeatherApiService().apply {
+            getResponse = {
+                Response.success(WeatherResponse(success = true, weather = dummyData))
+            }
+        }
+        val fakeLocalSource = FakeWeatherLocalSource()
+        val repository = WeatherRepository(fakeWeatherApi, FakeOpenMeteoApiService(), fakeLocalSource)
+
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, fakeLocalSource)
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state is WeatherUiState.Success)
+        val successState = state as WeatherUiState.Success
+        assertEquals("Ankara", successState.weatherData.locationName)
+        val cached = fakeLocalSource.getCachedWeather()
+        assertEquals("Ankara", cached?.locationName)
+    }
 }

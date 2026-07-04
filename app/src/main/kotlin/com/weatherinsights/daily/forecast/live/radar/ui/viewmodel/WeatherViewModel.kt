@@ -154,10 +154,29 @@ class WeatherViewModel @Inject constructor(
                 .collect { result ->
                     result.fold(
                         onSuccess = { data ->
-                            // Always override the city name with the locally geocoded value if available.
-                            // Otherwise, keep the resolved name from the API response (e.g. from IP fallback).
                             val finalData = if (cityName != null) data.copy(locationName = cityName) else data
                             _uiState.value = WeatherUiState.Success(finalData)
+
+                            // Background fallback: if the city name is still generic ("Current Location" or blank)
+                            // but we have valid coordinates, try reverse-geocoding them on the client.
+                            if (cityName == null && (finalData.locationName == "Current Location" || finalData.locationName.isBlank())) {
+                                viewModelScope.launch {
+                                    val resolvedName = locationTracker.getCityName(finalData.lat, finalData.lon)
+                                    if (resolvedName != null && resolvedName.isNotBlank() && resolvedName != "Current Location") {
+                                        val updatedData = finalData.copy(locationName = resolvedName)
+                                        localSource.saveWeatherToCache(updatedData)
+                                        
+                                        // Update UI if the state is still Success and for the same coordinates
+                                        val currentState = _uiState.value
+                                        if (currentState is WeatherUiState.Success &&
+                                            currentState.weatherData.lat == finalData.lat &&
+                                            currentState.weatherData.lon == finalData.lon
+                                        ) {
+                                            _uiState.value = WeatherUiState.Success(updatedData)
+                                        }
+                                    }
+                                }
+                            }
                         },
                         onFailure = { error ->
                             setNonSuccessState(

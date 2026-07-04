@@ -109,7 +109,7 @@ Tests: `app/src/test/java/com/weatherinsights/` (WeatherRepositoryTest, WeatherV
 - [x] Feature: Implement Welcome Onboarding Screen to prompt for location and notification/alarm permissions, setting the initial states based on selection (Issue #3)
 - [x] Bugfix: Correct background Worker location resolution to fall back to IP location on cache miss when location permission is denied
 - [x] Verification: Add unit tests to WeatherViewModelTest and WeatherRepositoryTest for onboarding and verify all tests pass
-
+- [x] Bugfix: Add client-side reverse-geocoding fallback in WeatherViewModel and WeatherNotificationWorker when returned locationName is generic ("Current Location" or blank)
 
 ## Not Started (from original roadmap, never completed)
 

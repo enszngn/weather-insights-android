@@ -131,9 +131,22 @@ class WeatherNotificationWorker(
             val cityName = if (lat != null && lon != null) tracker.getCityName(lat, lon) else null
 
             repository.fetchWeather(lat, lon, cityName).firstOrNull()?.onSuccess { data ->
-                weatherData = data
+                weatherData = if (cityName != null) data.copy(locationName = cityName) else data
             }
         }
+
+        // If the resolved weather data has a generic name ("Current Location" or blank),
+        // try to reverse-geocode the coordinates using the tracker.
+        val currentData = weatherData
+        if (currentData != null && (currentData.locationName == "Current Location" || currentData.locationName.isBlank())) {
+            val resolvedName = tracker.getCityName(currentData.lat, currentData.lon)
+            if (resolvedName != null && resolvedName.isNotBlank() && resolvedName != "Current Location") {
+                val updatedData = currentData.copy(locationName = resolvedName)
+                localSource.saveWeatherToCache(updatedData)
+                weatherData = updatedData
+            }
+        }
+
         return weatherData
     }
 

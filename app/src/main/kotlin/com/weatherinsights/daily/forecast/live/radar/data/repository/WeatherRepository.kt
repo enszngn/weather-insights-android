@@ -60,12 +60,12 @@ class WeatherRepository @Inject constructor(
                 var resolvedLon = lon
                 var resolvedLocationName = locationName
 
-                if ((resolvedLat == null || resolvedLon == null) && !errorBodyString.isNullOrEmpty()) {
+                if (!errorBodyString.isNullOrEmpty()) {
                     try {
                         val errorResponse = json.decodeFromString<WorkerErrorResponse>(errorBodyString)
-                        resolvedLat = errorResponse.lat
-                        resolvedLon = errorResponse.lon
-                        resolvedLocationName = errorResponse.locationName ?: resolvedLocationName
+                        if (resolvedLat == null) resolvedLat = errorResponse.lat
+                        if (resolvedLon == null) resolvedLon = errorResponse.lon
+                        if (resolvedLocationName == null) resolvedLocationName = errorResponse.locationName
                     } catch (e: Exception) {
                         // Ignore parsing errors and rely on original values
                     }
