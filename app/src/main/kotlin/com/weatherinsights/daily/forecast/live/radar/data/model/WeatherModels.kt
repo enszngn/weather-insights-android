@@ -35,7 +35,8 @@ data class HourlyForecast(
     val temp: Double,
     val humidity: Int,
     val windSpeed: Double,
-    val weatherCode: Int
+    val weatherCode: Int,
+    val precipitationProbability: Int = 0
 )
 
 @Serializable

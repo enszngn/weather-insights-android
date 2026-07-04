@@ -28,7 +28,8 @@ fun OpenMeteoResponse.toWeatherData(locationName: String = "Current Location"): 
                         temp = hourly.temperature2m.getOrNull(idx) ?: 0.0,
                         humidity = hourly.relativeHumidity2m.getOrNull(idx) ?: 0,
                         windSpeed = hourly.windSpeed10m.getOrNull(idx) ?: 0.0,
-                        weatherCode = hourly.weatherCode.getOrNull(idx) ?: 0
+                        weatherCode = hourly.weatherCode.getOrNull(idx) ?: 0,
+                        precipitationProbability = hourly.precipitationProbability?.getOrNull(idx) ?: 0
                     )
                 )
             }

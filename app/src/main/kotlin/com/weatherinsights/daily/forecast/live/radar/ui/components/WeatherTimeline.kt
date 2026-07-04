@@ -411,15 +411,33 @@ private fun HourColumn(entry: TimelineEntry.Hour) {
             Icon(
                 imageVector = Icons.Rounded.WaterDrop,
                 contentDescription = "Humidity",
-                tint = Color.White,
+                tint = Color.White.copy(alpha = 0.8f),
                 modifier = Modifier.size(8.dp)
             )
             Spacer(modifier = Modifier.width(2.dp))
             Text(
-                text = "%${item.humidity}",
+                text = "${item.humidity}%",
                 fontSize = 9.sp,
-                color = Color.White,
+                color = Color.White.copy(alpha = 0.8f),
                 fontWeight = FontWeight.Normal
+            )
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.WaterDrop,
+                contentDescription = "Precipitation Probability",
+                tint = Color(0xFF81D4FA),
+                modifier = Modifier.size(8.dp)
+            )
+            Spacer(modifier = Modifier.width(2.dp))
+            Text(
+                text = "${item.precipitationProbability}%",
+                fontSize = 9.sp,
+                color = Color(0xFF81D4FA),
+                fontWeight = FontWeight.Medium
             )
         }
         Text(
@@ -452,9 +470,9 @@ private fun SolarEventColumn(time: String, icon: ImageVector, label: String) {
             tint = Color(0xFFFFD166),
             modifier = Modifier.size(24.dp)
         )
-        // Humidity row equivalent space-wise to align items horizontally
+        // Spacers equivalent to both Humidity and Precipitation Probability rows (12.dp + 4.dp + 12.dp = 28.dp)
         Box(
-            modifier = Modifier.height(12.dp),
+            modifier = Modifier.height(28.dp),
             contentAlignment = Alignment.Center
         ) {
             // empty space filler

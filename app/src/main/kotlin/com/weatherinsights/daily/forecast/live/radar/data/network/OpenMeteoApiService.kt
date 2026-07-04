@@ -11,7 +11,7 @@ interface OpenMeteoApiService {
         @Query("latitude") latitude: Double,
         @Query("longitude") longitude: Double,
         @Query("current") current: String = "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code",
-        @Query("hourly") hourly: String = "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code",
+        @Query("hourly") hourly: String = "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,precipitation_probability",
         @Query("daily") daily: String = "uv_index_max,sunrise,sunset",
         @Query("timezone") timezone: String = "auto",
         @Query("forecast_days") forecastDays: Int = 8
