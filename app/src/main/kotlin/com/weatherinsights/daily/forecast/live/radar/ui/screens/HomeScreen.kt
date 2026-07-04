@@ -40,6 +40,9 @@ fun HomeScreen(
     onRefresh: () -> Unit,
     canRefresh: Boolean,
     isRefreshing: Boolean,
+    isLocationPermissionGranted: Boolean,
+    isAlarmPermissionGranted: Boolean,
+    onRequestAlarmPermission: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isSettingsOpen by remember { mutableStateOf(false) }
@@ -77,7 +80,11 @@ fun HomeScreen(
                 SettingsScreen(
                     preferences = notificationPreferences,
                     onPreferencesChanged = onPreferencesChanged,
-                    onBack = { isSettingsOpen = false }
+                    onBack = { isSettingsOpen = false },
+                    isLocationPermissionGranted = isLocationPermissionGranted,
+                    isAlarmPermissionGranted = isAlarmPermissionGranted,
+                    onRequestLocationPermission = onRequestPermission,
+                    onRequestAlarmPermission = onRequestAlarmPermission
                 )
             } else {
                 when (uiState) {

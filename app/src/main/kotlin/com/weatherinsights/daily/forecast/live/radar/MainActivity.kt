@@ -24,6 +24,11 @@ import androidx.core.content.ContextCompat
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import com.weatherinsights.daily.forecast.live.radar.ui.screens.WelcomeScreen
+import com.weatherinsights.daily.forecast.live.radar.ui.components.LoadingView
 import com.weatherinsights.daily.forecast.live.radar.receiver.AlarmScheduler
 import com.weatherinsights.daily.forecast.live.radar.ui.screens.HomeScreen
 import com.weatherinsights.daily.forecast.live.radar.ui.theme.WeatherInsightsTheme
@@ -37,51 +42,129 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: WeatherViewModel by viewModels()
 
+    private val isLocationGranted = mutableStateOf(false)
+    private val isNotificationGranted = mutableStateOf(false)
+    private val isAlarmGranted = mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        isLocationGranted.value = hasLocationPermission()
+        isNotificationGranted.value = hasNotificationPermission()
+        isAlarmGranted.value = hasAlarmPermission()
+
         setContent {
             WeatherInsightsTheme {
                 val uiState by viewModel.uiState.collectAsState()
                 val canRefresh by viewModel.canRefresh.collectAsState()
                 val isRefreshing by viewModel.isRefreshing.collectAsState()
                 val notificationPrefs by viewModel.notificationPreferences.collectAsState()
+                val isWelcomeCompleted by viewModel.isWelcomeCompleted.collectAsState()
 
-                val permissionLauncher = rememberLauncherForActivityResult(
+                var onboardingStep by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(1) }
+                val isLocationGrantedVal by isLocationGranted
+                val isNotificationGrantedVal by isNotificationGranted
+                val isAlarmGrantedVal by isAlarmGranted
+
+                val locationLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestMultiplePermissions()
                 ) { permissions ->
-                    viewModel.loadWeather()
+                    isLocationGranted.value = hasLocationPermission()
+                    if (isWelcomeCompleted == true) {
+                        viewModel.loadWeather()
+                    } else {
+                        onboardingStep = 3
+                    }
                 }
 
-                LaunchedEffect(Unit) {
-                    permissionLauncher.launch(buildRequiredPermissions())
-                    scheduleWeatherNotificationWorker()
+                val notificationLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestPermission()
+                ) { isGranted ->
+                    isNotificationGranted.value = isGranted
+                    viewModel.completeWelcome(notificationsEnabled = isGranted)
+                    if (isGranted) {
+                        checkAndRequestExactAlarmPermission()
+                    }
+                }
+
+                LaunchedEffect(isWelcomeCompleted) {
+                    if (isWelcomeCompleted == true) {
+                        scheduleWeatherNotificationWorker()
+                    }
                 }
 
                 LaunchedEffect(notificationPrefs) {
-                    syncAlarms(notificationPrefs)
+                    if (isWelcomeCompleted == true) {
+                        syncAlarms(notificationPrefs)
+                    }
                 }
 
                 Surface(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    HomeScreen(
-                        uiState = uiState,
-                        notificationPreferences = notificationPrefs,
-                        onPreferencesChanged = { updated ->
-                            viewModel.updateNotificationPreferences(updated)
-                        },
-                        onRequestPermission = {
-                            permissionLauncher.launch(buildRequiredPermissions())
-                        },
-                        onRetry = {
-                            viewModel.loadWeather()
-                        },
-                        onRefresh = {
-                            viewModel.refresh()
-                        },
-                        canRefresh = canRefresh,
-                        isRefreshing = isRefreshing
-                    )
+                    when (isWelcomeCompleted) {
+                        null -> LoadingView()
+                        false -> {
+                            WelcomeScreen(
+                                step = onboardingStep,
+                                isLocationPermissionGranted = isLocationGrantedVal,
+                                isNotificationPermissionGranted = isNotificationGrantedVal,
+                                onRequestLocationPermission = {
+                                    locationLauncher.launch(
+                                        arrayOf(
+                                            Manifest.permission.ACCESS_FINE_LOCATION,
+                                            Manifest.permission.ACCESS_COARSE_LOCATION
+                                        )
+                                    )
+                                },
+                                onRequestNotificationPermission = {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    } else {
+                                        viewModel.completeWelcome(notificationsEnabled = true)
+                                        checkAndRequestExactAlarmPermission()
+                                    }
+                                },
+                                onNextStep = { onboardingStep = 2 },
+                                onSkipLocation = { onboardingStep = 3 },
+                                onSkipNotifications = { viewModel.completeWelcome(notificationsEnabled = false) },
+                                onGetStarted = { notificationsEnabled ->
+                                    viewModel.completeWelcome(notificationsEnabled)
+                                }
+                            )
+                        }
+                        true -> {
+                            HomeScreen(
+                                uiState = uiState,
+                                notificationPreferences = notificationPrefs,
+                                onPreferencesChanged = { updated ->
+                                    val oldPrefs = viewModel.notificationPreferences.value
+                                    val morningToggledOn = updated.morningReportEnabled && !oldPrefs.morningReportEnabled
+                                    val eveningToggledOn = updated.eveningReportEnabled && !oldPrefs.eveningReportEnabled
+                                    
+                                    viewModel.updateNotificationPreferences(updated)
+                                    if (morningToggledOn || eveningToggledOn) {
+                                        checkAndRequestExactAlarmPermission()
+                                    }
+                                },
+                                onRequestPermission = {
+                                    openAppSystemPermissions()
+                                },
+                                onRetry = {
+                                    viewModel.loadWeather()
+                                },
+                                onRefresh = {
+                                    viewModel.refresh()
+                                },
+                                canRefresh = canRefresh,
+                                isRefreshing = isRefreshing,
+                                isLocationPermissionGranted = isLocationGrantedVal,
+                                isAlarmPermissionGranted = isAlarmGrantedVal,
+                                onRequestAlarmPermission = {
+                                    checkAndRequestExactAlarmPermission()
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -89,9 +172,43 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        syncAlarms(viewModel.notificationPreferences.value)
+        isLocationGranted.value = hasLocationPermission()
+        isAlarmGranted.value = hasAlarmPermission()
+        isNotificationGranted.value = hasNotificationPermission()
+        if (viewModel.isWelcomeCompleted.value == true) {
+            syncAlarms(viewModel.notificationPreferences.value)
+        }
     }
 
+    private fun openAppSystemPermissions() {
+        try {
+            val intent = Intent("android.intent.action.MANAGE_APP_PERMISSIONS").apply {
+                putExtra(Intent.EXTRA_PACKAGE_NAME, packageName)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            openAppSystemSettings()
+        }
+    }
+
+    private fun openAppSystemSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:$packageName")
+        }
+        startActivity(intent)
+    }
+
+    private fun checkAndRequestExactAlarmPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            }
+        }
+    }
 
     private fun scheduleWeatherNotificationWorker() {
         val workRequest = PeriodicWorkRequestBuilder<WeatherNotificationWorker>(
@@ -104,28 +221,36 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private fun buildRequiredPermissions(): Array<String> = buildList {
-        add(Manifest.permission.ACCESS_FINE_LOCATION)
-        add(Manifest.permission.ACCESS_COARSE_LOCATION)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            add(Manifest.permission.POST_NOTIFICATIONS)
+    private fun hasLocationPermission(): Boolean {
+        val fine = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        return fine || coarse
+    }
+
+    private fun hasNotificationPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
         }
-    }.toTypedArray()
+    }
+
+    private fun hasAlarmPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.canScheduleExactAlarms()
+        } else {
+            true
+        }
+    }
 
     private fun syncAlarms(prefs: com.weatherinsights.daily.forecast.live.radar.data.model.NotificationPreferences) {
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val needsExactAlarm = prefs.morningReportEnabled || prefs.eveningReportEnabled
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            needsExactAlarm && !alarmManager.canScheduleExactAlarms()
-        ) {
-            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                data = Uri.parse("package:$packageName")
-            }
-            startActivity(intent)
-            return
-        }
-
         if (prefs.morningReportEnabled) {
             AlarmScheduler.scheduleReportAlarm(
                 applicationContext,

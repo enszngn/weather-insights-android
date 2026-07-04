@@ -123,13 +123,15 @@ class WeatherNotificationWorker(
     ): WeatherData? {
         var weatherData = localSource.getCachedWeather()
 
-        if (weatherData == null && tracker.hasLocationPermission()) {
-            val location = tracker.getCurrentLocation(forceRefresh = false)
-            if (location != null) {
-                val cityName = tracker.getCityName(location.latitude, location.longitude)
-                repository.fetchWeather(location.latitude, location.longitude, cityName).firstOrNull()?.onSuccess { data ->
-                    weatherData = data
-                }
+        if (weatherData == null) {
+            val hasPermission = tracker.hasLocationPermission()
+            val location = if (hasPermission) tracker.getCurrentLocation(forceRefresh = false) else null
+            val lat = location?.latitude
+            val lon = location?.longitude
+            val cityName = if (lat != null && lon != null) tracker.getCityName(lat, lon) else null
+
+            repository.fetchWeather(lat, lon, cityName).firstOrNull()?.onSuccess { data ->
+                weatherData = data
             }
         }
         return weatherData

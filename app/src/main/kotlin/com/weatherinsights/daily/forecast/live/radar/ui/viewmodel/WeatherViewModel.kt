@@ -33,6 +33,9 @@ class WeatherViewModel @Inject constructor(
     private val _notificationPreferences = MutableStateFlow(NotificationPreferences())
     val notificationPreferences: StateFlow<NotificationPreferences> = _notificationPreferences.asStateFlow()
 
+    private val _isWelcomeCompleted = MutableStateFlow<Boolean?>(null)
+    val isWelcomeCompleted: StateFlow<Boolean?> = _isWelcomeCompleted.asStateFlow()
+
     companion object {
         const val MAX_REFRESHES = 3
         const val WINDOW_DURATION_MS = 15 * 60 * 1000L // 15 minutes
@@ -43,11 +46,40 @@ class WeatherViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            restoreRefreshState()
-            loadCachedWeatherAndFetch()
+            val completed = localSource.isWelcomeCompleted()
+            _isWelcomeCompleted.value = completed
+            if (completed) {
+                restoreRefreshState()
+                loadCachedWeatherAndFetch()
+            }
         }
         viewModelScope.launch {
             _notificationPreferences.value = localSource.getNotificationPreferences()
+        }
+    }
+
+    fun completeWelcome(notificationsEnabled: Boolean) {
+        viewModelScope.launch {
+            val defaultPrefs = NotificationPreferences()
+            val prefs = if (notificationsEnabled) {
+                defaultPrefs
+            } else {
+                defaultPrefs.copy(
+                    criticalAlertsEnabled = false,
+                    morningReportEnabled = false,
+                    eveningReportEnabled = false,
+                    weekendSummaryEnabled = false,
+                    tempShockEnabled = false
+                )
+            }
+            localSource.saveNotificationPreferences(prefs)
+            _notificationPreferences.value = prefs
+
+            localSource.setWelcomeCompleted(true)
+            _isWelcomeCompleted.value = true
+
+            restoreRefreshState()
+            loadWeather()
         }
     }
 

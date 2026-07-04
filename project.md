@@ -106,6 +106,10 @@ Tests: `app/src/test/java/com/weatherinsights/` (WeatherRepositoryTest, WeatherV
 - [x] Feature: Changed API endpoints from `/api/mobile/weather` to `/api/weather` to support IP-based location fallback on Worker cache miss (which returns resolved coordinates in the error body)
 - [x] Feature: Parse resolved IP coordinates and location name from the Worker's 404 cache miss response and use them to fetch and cache data via Open-Meteo
 - [x] Verification: Update unit tests in WeatherViewModelTest and verify all tests pass
+- [x] Feature: Implement Welcome Onboarding Screen to prompt for location and notification/alarm permissions, setting the initial states based on selection (Issue #3)
+- [x] Bugfix: Correct background Worker location resolution to fall back to IP location on cache miss when location permission is denied
+- [x] Verification: Add unit tests to WeatherViewModelTest and WeatherRepositoryTest for onboarding and verify all tests pass
+
 
 ## Not Started (from original roadmap, never completed)
 
