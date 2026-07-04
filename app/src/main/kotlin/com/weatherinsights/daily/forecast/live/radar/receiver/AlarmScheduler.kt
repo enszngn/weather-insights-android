@@ -52,10 +52,14 @@ object AlarmScheduler {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // Only schedule if the user has granted SCHEDULE_EXACT_ALARM.
-            // If not granted, MainActivity will redirect the user to grant it.
             if (alarmManager.canScheduleExactAlarms()) {
                 alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    calendar.timeInMillis,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     calendar.timeInMillis,
                     pendingIntent

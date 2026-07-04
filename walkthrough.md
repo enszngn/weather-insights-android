@@ -144,6 +144,7 @@ Historical log of major changes. One line per change; see `task.md` for the chec
 - `data/datasource/WeatherLocalSource.kt`: added `welcome_completed` flag with DataStore persistence.
 - `ui/viewmodel/WeatherViewModel.kt`: exposed `isWelcomeCompleted` StateFlow. Added `completeWelcome()` to save user notification preferences (opt-in/opt-out) and set onboarding completed status.
 - `ui/screens/WelcomeScreen.kt`: built onboarding flow using a 3-page split design. Page 1 displays app info and Get Started; Page 2 requests location permission or fallback with distinct Continue (grey) and Grant (blue) buttons; Page 3 requests notification/alarm settings similarly.
-- `MainActivity.kt`: routed starting screen between loading, onboarding steps, and `HomeScreen`. Configured launchers to advance step indices on permission response.
+- `MainActivity.kt`: routed starting screen between loading, onboarding steps, and `HomeScreen`. Configured launchers to advance step indices on permission response. Decoupled exact alarm setting redirects from `onResume` and general syncs, prompting only upon explicit user opt-in (on onboarding page 3 or settings screen toggle) to prevent loops.
+- `receiver/AlarmScheduler.kt`: implemented non-exact scheduling fallback (`setAndAllowWhileIdle`) on Android S+ when exact alarm permission is missing.
 - `worker/WeatherNotificationWorker.kt`: resolved background worker location lookup on cache miss when location permission is not granted by calling IP location fallback.
 - `WeatherViewModelTest.kt` & `WeatherRepositoryTest.kt`: updated stubs and added unit tests for onboarding completion and notification preferences logic. All tests compile and pass.
