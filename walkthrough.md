@@ -132,3 +132,10 @@ Historical log of major changes. One line per change; see `task.md` for the chec
 ## Bugfix: Android Lint MissingPermission Errors
 - Added `@SuppressLint("MissingPermission")` to `getCurrentLocation` in `DefaultLocationTracker.kt` to suppress static compile-time lint warnings since permission checks are dynamically verified inside the function.
 - Verified `./gradlew build` compiles and passes all checks.
+
+## IP-Based Location Fallback Implementation
+- Updated `WeatherApiService.kt` to call `/api/weather` instead of `/api/mobile/weather` and support nullable query parameters (defaulting to null), allowing Retrofit to omit them.
+- Updated `WeatherRepository.kt` to support nullable `Double?` coordinates, parse resolved IP coordinates and location name from the Worker's `404` cache miss error body using Kotlinx Serialization, and use them for the Open-Meteo fallback.
+- Refactored `WeatherViewModel.kt` to fetch weather unconditionally even if permissions are denied or GPS is disabled by executing coordinates-free API requests.
+- Updated `MainActivity.kt` to run `loadWeather` unconditionally on launcher completion.
+- Updated `WeatherViewModelTest.kt` to verify successful IP fallback logic and check all tests pass.

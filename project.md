@@ -102,6 +102,10 @@ Tests: `app/src/test/java/com/weatherinsights/` (WeatherRepositoryTest, WeatherV
 - [x] Project: Update app version to 1.0.0 in build.gradle.kts
 - [x] Project: Raise min API level to 26 in build.gradle.kts
 - [x] Bugfix: Fix Android Lint MissingPermission errors in DefaultLocationTracker.kt by adding @SuppressLint("MissingPermission")
+- [x] Feature: Implement IP-based location fallback (omitting query parameters on weather API request) when location permissions are denied/disabled
+- [x] Feature: Changed API endpoints from `/api/mobile/weather` to `/api/weather` to support IP-based location fallback on Worker cache miss (which returns resolved coordinates in the error body)
+- [x] Feature: Parse resolved IP coordinates and location name from the Worker's 404 cache miss response and use them to fetch and cache data via Open-Meteo
+- [x] Verification: Update unit tests in WeatherViewModelTest and verify all tests pass
 
 ## Not Started (from original roadmap, never completed)
 

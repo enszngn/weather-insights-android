@@ -37,3 +37,12 @@ data class HourlyForecast(
     val windSpeed: Double,
     val weatherCode: Int
 )
+
+@Serializable
+data class WorkerErrorResponse(
+    val success: Boolean,
+    val reason: String? = null,
+    val lat: Double? = null,
+    val lon: Double? = null,
+    val locationName: String? = null
+)

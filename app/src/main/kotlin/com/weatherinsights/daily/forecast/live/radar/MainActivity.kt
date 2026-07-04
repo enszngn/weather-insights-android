@@ -49,11 +49,7 @@ class MainActivity : ComponentActivity() {
                 val permissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestMultiplePermissions()
                 ) { permissions ->
-                    val locationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-                    if (locationGranted) {
-                        viewModel.loadWeather()
-                    }
+                    viewModel.loadWeather()
                 }
 
                 LaunchedEffect(Unit) {

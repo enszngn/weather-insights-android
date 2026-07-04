@@ -90,7 +90,7 @@ class WeatherViewModelTest {
         var getResponse: () -> Response<WeatherResponse> = {
             Response.success(WeatherResponse(success = true))
         }
-        override suspend fun getWeather(latitude: Double, longitude: Double): Response<WeatherResponse> {
+        override suspend fun getWeather(latitude: Double?, longitude: Double?): Response<WeatherResponse> {
             return getResponse()
         }
         override suspend fun uploadMeteoData(payload: WeatherPostPayload): Response<WeatherResponse> {
@@ -136,12 +136,40 @@ class WeatherViewModelTest {
     }
 
     @Test
-    fun testViewModelInit_PermissionDenied_TransitionsToPermissionError() = runTest {
+    fun testViewModelInit_PermissionDenied_FallsBackToIpLocation_Success() = runTest {
+        val dummyData = WeatherData("IP Resolved City", 40.0, -74.0, emptyList())
         val fakeLocationTracker = FakeLocationTracker().apply {
             locationPermissionGranted = false
             locationResult = null
         }
-        val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService(), FakeWeatherLocalSource())
+        val fakeWeatherApi = FakeWeatherApiService().apply {
+            getResponse = {
+                Response.success(WeatherResponse(success = true, weather = dummyData))
+            }
+        }
+        val repository = WeatherRepository(fakeWeatherApi, FakeOpenMeteoApiService(), FakeWeatherLocalSource())
+
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, FakeWeatherLocalSource())
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state is WeatherUiState.Success)
+        assertEquals(dummyData, (state as WeatherUiState.Success).weatherData)
+    }
+
+    @Test
+    fun testViewModelInit_PermissionDenied_FallsBackToIpLocation_Failure_TransitionsToError() = runTest {
+        val fakeLocationTracker = FakeLocationTracker().apply {
+            locationPermissionGranted = false
+            locationResult = null
+        }
+        val fakeWeatherApi = FakeWeatherApiService().apply {
+            getResponse = {
+                Response.error(500, "Server Error".toResponseBody())
+            }
+        }
+        val repository = WeatherRepository(fakeWeatherApi, FakeOpenMeteoApiService(), FakeWeatherLocalSource())
 
         val viewModel = WeatherViewModel(repository, fakeLocationTracker, FakeWeatherLocalSource())
 
@@ -149,26 +177,31 @@ class WeatherViewModelTest {
 
         val state = viewModel.uiState.value
         assertTrue(state is WeatherUiState.Error)
-        assertEquals("Location permission is required to fetch weather information.", (state as WeatherUiState.Error).message)
-        assertTrue(state.isPermissionRequired)
+        assertEquals("Worker error: Server Error", (state as WeatherUiState.Error).message)
+        assertTrue(!state.isPermissionRequired)
     }
 
     @Test
-    fun testViewModelInit_LocationNull_TransitionsToLocationError() = runTest {
+    fun testViewModelInit_LocationNull_FallsBackToIpLocation_Success() = runTest {
+        val dummyData = WeatherData("IP Resolved City", 40.0, -74.0, emptyList())
         val fakeLocationTracker = FakeLocationTracker().apply {
             locationPermissionGranted = true
             locationResult = null
         }
-        val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService(), FakeWeatherLocalSource())
+        val fakeWeatherApi = FakeWeatherApiService().apply {
+            getResponse = {
+                Response.success(WeatherResponse(success = true, weather = dummyData))
+            }
+        }
+        val repository = WeatherRepository(fakeWeatherApi, FakeOpenMeteoApiService(), FakeWeatherLocalSource())
 
         val viewModel = WeatherViewModel(repository, fakeLocationTracker, FakeWeatherLocalSource())
 
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertTrue(state is WeatherUiState.Error)
-        assertEquals("Could not retrieve device location. Please ensure location services are enabled on your device.", (state as WeatherUiState.Error).message)
-        assertTrue(!state.isPermissionRequired)
+        assertTrue(state is WeatherUiState.Success)
+        assertEquals(dummyData, (state as WeatherUiState.Success).weatherData)
     }
 
     @Test

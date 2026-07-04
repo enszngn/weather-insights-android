@@ -75,7 +75,7 @@ class WeatherRepositoryTest {
 
         var lastPostPayload: WeatherPostPayload? = null
 
-        override suspend fun getWeather(latitude: Double, longitude: Double): Response<WeatherResponse> {
+        override suspend fun getWeather(latitude: Double?, longitude: Double?): Response<WeatherResponse> {
             return getResponse()
         }
 

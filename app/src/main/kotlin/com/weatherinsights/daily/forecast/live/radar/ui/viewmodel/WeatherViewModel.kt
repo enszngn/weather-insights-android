@@ -100,38 +100,30 @@ class WeatherViewModel @Inject constructor(
         viewModelScope.launch {
             setNonSuccessState(WeatherUiState.Loading)
 
-            if (!locationTracker.hasLocationPermission()) {
-                setNonSuccessState(
-                    WeatherUiState.Error(
-                        message = "Location permission is required to fetch weather information.",
-                        isPermissionRequired = true
-                    )
-                )
-                return@launch
+            val hasPermission = locationTracker.hasLocationPermission()
+            val location = if (hasPermission) {
+                locationTracker.getCurrentLocation(forceRefresh = forceRefresh)
+            } else {
+                null
             }
 
-            // Pass forceRefresh through so manual refresh always gets a live GPS fix.
-            val location = locationTracker.getCurrentLocation(forceRefresh = forceRefresh)
-            if (location == null) {
-                setNonSuccessState(
-                    WeatherUiState.Error(
-                        message = "Could not retrieve device location. Please ensure location services are enabled on your device."
-                    )
-                )
-                return@launch
-            }
+            val lat: Double? = location?.latitude
+            val lon: Double? = location?.longitude
 
             // Geocode before fetching — Android's local Geocoder is fast (~50–150 ms) and
             // the result must be available when the Repository fires the POST to the Worker.
-            val cityName = locationTracker.getCityName(location.latitude, location.longitude)
+            val cityName = if (lat != null && lon != null) {
+                locationTracker.getCityName(lat, lon)
+            } else {
+                null
+            }
 
-            repository.fetchWeather(location.latitude, location.longitude, cityName)
+            repository.fetchWeather(lat, lon, cityName)
                 .collect { result ->
                     result.fold(
                         onSuccess = { data ->
-                            // Always override the city name with the locally geocoded value.
-                            // The cloud cache (D1) may contain a stale city name from a
-                            // previous session with a different location (e.g. developer's machine).
+                            // Always override the city name with the locally geocoded value if available.
+                            // Otherwise, keep the resolved name from the API response (e.g. from IP fallback).
                             val finalData = if (cityName != null) data.copy(locationName = cityName) else data
                             _uiState.value = WeatherUiState.Success(finalData)
                         },

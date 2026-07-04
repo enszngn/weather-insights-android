@@ -15,11 +15,15 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.weatherinsights.daily.forecast.live.radar.data.model.WorkerErrorResponse
+import kotlinx.serialization.json.Json
+
 @Singleton
 class WeatherRepository @Inject constructor(
     private val weatherApiService: WeatherApiService,
     private val openMeteoApiService: OpenMeteoApiService,
-    private val localSource: WeatherLocalSource
+    private val localSource: WeatherLocalSource,
+    private val json: Json = Json { ignoreUnknownKeys = true }
 ) {
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -31,7 +35,7 @@ class WeatherRepository @Inject constructor(
         localSource.saveWeatherToCache(data)
     }
 
-    fun fetchWeather(lat: Double, lon: Double, locationName: String? = null): Flow<Result<WeatherData>> = flow {
+    fun fetchWeather(lat: Double?, lon: Double?, locationName: String? = null): Flow<Result<WeatherData>> = flow {
         try {
             // 1. Try fetching from Cloudflare Worker
             val workerResponse = weatherApiService.getWeather(lat, lon)
@@ -44,40 +48,67 @@ class WeatherRepository @Inject constructor(
                 }
             }
 
-            // 2. If HTTP 404, fetch from Open-Meteo
-            if (workerResponse.code() == 404) {
-                val meteoResponse = openMeteoApiService.getForecast(lat, lon)
-                if (meteoResponse.isSuccessful) {
-                    val rawMeteo = meteoResponse.body()
-                    if (rawMeteo != null) {
-                        // 3. Post raw meteo data back to Worker to cache in the background (fire and forget)
-                        repositoryScope.launch {
-                            try {
-                                val payload = WeatherPostPayload(
-                                    lat = lat,
-                                    lon = lon,
-                                    locationName = locationName,
-                                    meteoData = rawMeteo
-                                )
-                                weatherApiService.uploadMeteoData(payload)
-                            } catch (e: Exception) {
-                                // Silent failure - do not affect UI state
-                            }
-                        }
+            val errorBodyString = if (!workerResponse.isSuccessful) {
+                workerResponse.errorBody()?.string()
+            } else {
+                null
+            }
 
-                        // Map and emit locally structured data immediately to stop loading spinner
-                        val localWeatherData = rawMeteo.toWeatherData(locationName ?: "Current Location")
-                        saveWeatherToCache(localWeatherData)
-                        emit(Result.success(localWeatherData))
-                        return@flow
+            // 2. If HTTP 404, check if we need to fall back to Open-Meteo
+            if (workerResponse.code() == 404) {
+                var resolvedLat = lat
+                var resolvedLon = lon
+                var resolvedLocationName = locationName
+
+                if ((resolvedLat == null || resolvedLon == null) && !errorBodyString.isNullOrEmpty()) {
+                    try {
+                        val errorResponse = json.decodeFromString<WorkerErrorResponse>(errorBodyString)
+                        resolvedLat = errorResponse.lat
+                        resolvedLon = errorResponse.lon
+                        resolvedLocationName = errorResponse.locationName ?: resolvedLocationName
+                    } catch (e: Exception) {
+                        // Ignore parsing errors and rely on original values
+                    }
+                }
+
+                if (resolvedLat != null && resolvedLon != null) {
+                    val meteoResponse = openMeteoApiService.getForecast(resolvedLat, resolvedLon)
+                    if (meteoResponse.isSuccessful) {
+                        val rawMeteo = meteoResponse.body()
+                        if (rawMeteo != null) {
+                            // 3. Post raw meteo data back to Worker to cache in the background (fire and forget)
+                            repositoryScope.launch {
+                                try {
+                                    val payload = WeatherPostPayload(
+                                        lat = resolvedLat,
+                                        lon = resolvedLon,
+                                        locationName = resolvedLocationName,
+                                        meteoData = rawMeteo
+                                    )
+                                    weatherApiService.uploadMeteoData(payload)
+                                } catch (e: Exception) {
+                                    // Silent failure - do not affect UI state
+                                }
+                            }
+
+                            // Map and emit locally structured data immediately to stop loading spinner
+                            val localWeatherData = rawMeteo.toWeatherData(resolvedLocationName ?: "Current Location")
+                            saveWeatherToCache(localWeatherData)
+                            emit(Result.success(localWeatherData))
+                            return@flow
+                        } else {
+                            emit(Result.failure(Exception("Open-Meteo response body was empty")))
+                        }
                     } else {
-                        emit(Result.failure(Exception("Open-Meteo response body was empty")))
+                        emit(Result.failure(Exception("Open-Meteo error: ${meteoResponse.errorBody()?.string()}")))
                     }
                 } else {
-                    emit(Result.failure(Exception("Open-Meteo error: ${meteoResponse.errorBody()?.string()}")))
+                    val errorMsg = if (!errorBodyString.isNullOrEmpty()) "Worker error: $errorBodyString" else "Worker error (status code ${workerResponse.code()})"
+                    emit(Result.failure(Exception(errorMsg)))
                 }
             } else {
-                emit(Result.failure(Exception("Worker error: ${workerResponse.errorBody()?.string()}")))
+                val errorMsg = if (!errorBodyString.isNullOrEmpty()) "Worker error: $errorBodyString" else "Worker error (status code ${workerResponse.code()})"
+                emit(Result.failure(Exception(errorMsg)))
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
