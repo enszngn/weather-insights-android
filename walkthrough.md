@@ -139,3 +139,11 @@ Historical log of major changes. One line per change; see `task.md` for the chec
 - Refactored `WeatherViewModel.kt` to fetch weather unconditionally even if permissions are denied or GPS is disabled by executing coordinates-free API requests.
 - Updated `MainActivity.kt` to run `loadWeather` unconditionally on launcher completion.
 - Updated `WeatherViewModelTest.kt` to verify successful IP fallback logic and check all tests pass.
+
+## Welcome Onboarding Page & Worker IP Fallback Fixes
+- `data/datasource/WeatherLocalSource.kt`: added `welcome_completed` flag with DataStore persistence.
+- `ui/viewmodel/WeatherViewModel.kt`: exposed `isWelcomeCompleted` StateFlow. Added `completeWelcome()` to save user notification preferences (opt-in/opt-out) and set onboarding completed status.
+- `ui/screens/WelcomeScreen.kt`: built onboarding page with Compose containing location permission button (fall back to IP notice if denied) and Weather Insights notifications switch.
+- `MainActivity.kt`: routed starting screen between loading, onboarding `WelcomeScreen`, and `HomeScreen`. Removed automatic permission prompt launch from startup.
+- `worker/WeatherNotificationWorker.kt`: resolved background worker location lookup on cache miss when location permission is not granted by calling IP location fallback.
+- `WeatherViewModelTest.kt` & `WeatherRepositoryTest.kt`: updated stubs and added unit tests for onboarding completion and notification preferences logic. All tests compile and pass.

@@ -62,6 +62,7 @@ class WeatherViewModelTest {
         private var refreshWindowStart: Long = 0L
         var notificationPrefs = NotificationPreferences()
         private val notificationDates = mutableMapOf<String, String>()
+        var welcomeCompleted = true
 
         override suspend fun getCachedWeather(): WeatherData? = cachedWeather
         override suspend fun saveWeatherToCache(data: WeatherData) {
@@ -83,6 +84,10 @@ class WeatherViewModelTest {
         override suspend fun getLastNotificationDate(key: String): String? = notificationDates[key]
         override suspend fun saveLastNotificationDate(key: String, dateString: String) {
             notificationDates[key] = dateString
+        }
+        override suspend fun isWelcomeCompleted(): Boolean = welcomeCompleted
+        override suspend fun setWelcomeCompleted(completed: Boolean) {
+            welcomeCompleted = completed
         }
     }
 
@@ -390,5 +395,69 @@ class WeatherViewModelTest {
         
         assertEquals(updatedPrefs, viewModel.notificationPreferences.value)
         assertEquals(updatedPrefs, fakeLocalSource.getNotificationPreferences())
+    }
+
+    @Test
+    fun testViewModel_WelcomeOnboarding_OptInNotifications() = runTest {
+        val fakeLocationTracker = FakeLocationTracker()
+        val dummyData = WeatherData("Ankara", 39.93, 32.85, emptyList())
+        val fakeWeatherApi = FakeWeatherApiService().apply {
+            getResponse = { Response.success(WeatherResponse(success = true, weather = dummyData)) }
+        }
+        val repository = WeatherRepository(fakeWeatherApi, FakeOpenMeteoApiService(), FakeWeatherLocalSource())
+        val fakeLocalSource = FakeWeatherLocalSource().apply {
+            welcomeCompleted = false
+        }
+
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, fakeLocalSource)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // At init, welcomeCompleted should be false and weather data should not be fetched (loading state remains)
+        assertEquals(false, viewModel.isWelcomeCompleted.value)
+        assertTrue(viewModel.uiState.value is WeatherUiState.Loading)
+
+        // Complete welcome with notification opt-in
+        viewModel.completeWelcome(notificationsEnabled = true)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Welcome should be completed
+        assertEquals(true, viewModel.isWelcomeCompleted.value)
+        assertEquals(true, fakeLocalSource.welcomeCompleted)
+
+        // All notification prefs should be true
+        val prefs = fakeLocalSource.getNotificationPreferences()
+        assertTrue(prefs.criticalAlertsEnabled)
+        assertTrue(prefs.morningReportEnabled)
+        assertTrue(prefs.eveningReportEnabled)
+        assertTrue(prefs.weekendSummaryEnabled)
+        assertTrue(prefs.tempShockEnabled)
+
+        // Weather should be fetched
+        assertTrue(viewModel.uiState.value is WeatherUiState.Success)
+        assertEquals(dummyData, (viewModel.uiState.value as WeatherUiState.Success).weatherData)
+    }
+
+    @Test
+    fun testViewModel_WelcomeOnboarding_OptOutNotifications() = runTest {
+        val fakeLocationTracker = FakeLocationTracker()
+        val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService(), FakeWeatherLocalSource())
+        val fakeLocalSource = FakeWeatherLocalSource().apply {
+            welcomeCompleted = false
+        }
+
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, fakeLocalSource)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Complete welcome with notifications disabled
+        viewModel.completeWelcome(notificationsEnabled = false)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // All notification prefs should be false
+        val prefs = fakeLocalSource.getNotificationPreferences()
+        assertTrue(!prefs.criticalAlertsEnabled)
+        assertTrue(!prefs.morningReportEnabled)
+        assertTrue(!prefs.eveningReportEnabled)
+        assertTrue(!prefs.weekendSummaryEnabled)
+        assertTrue(!prefs.tempShockEnabled)
     }
 }

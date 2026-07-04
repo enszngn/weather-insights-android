@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.weatherinsights.daily.forecast.live.radar.data.model.NotificationPreferences
@@ -34,6 +35,8 @@ interface WeatherLocalSource {
     suspend fun saveNotificationPreferences(prefs: NotificationPreferences)
     suspend fun getLastNotificationDate(key: String): String?
     suspend fun saveLastNotificationDate(key: String, dateString: String)
+    suspend fun isWelcomeCompleted(): Boolean
+    suspend fun setWelcomeCompleted(completed: Boolean)
 }
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "weather_settings")
@@ -48,6 +51,7 @@ class DataStoreWeatherLocalSource @Inject constructor(
     private val REFRESH_COUNT_KEY = stringPreferencesKey("refresh_count")
     private val REFRESH_WINDOW_START_KEY = stringPreferencesKey("refresh_window_start")
     private val NOTIFICATION_PREFS_KEY = stringPreferencesKey("notification_preferences")
+    private val WELCOME_COMPLETED_KEY = booleanPreferencesKey("welcome_completed")
 
     override suspend fun getCachedWeather(): WeatherData? {
         return try {
@@ -138,6 +142,26 @@ class DataStoreWeatherLocalSource @Inject constructor(
         try {
             context.dataStore.edit { prefs ->
                 prefs[stringPreferencesKey("last_notif_$key")] = dateString
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+    }
+
+    override suspend fun isWelcomeCompleted(): Boolean {
+        return try {
+            context.dataStore.data.map { preferences ->
+                preferences[WELCOME_COMPLETED_KEY]
+            }.firstOrNull() ?: false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    override suspend fun setWelcomeCompleted(completed: Boolean) {
+        try {
+            context.dataStore.edit { preferences ->
+                preferences[WELCOME_COMPLETED_KEY] = completed
             }
         } catch (e: Exception) {
             // Ignore

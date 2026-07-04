@@ -27,6 +27,7 @@ class WeatherRepositoryTest {
         var cachedWeather: WeatherData? = null
         var notificationPrefs = NotificationPreferences()
         private val notificationDates = mutableMapOf<String, String>()
+        var welcomeCompleted = true
 
         override suspend fun getCachedWeather(): WeatherData? = cachedWeather
         override suspend fun saveWeatherToCache(data: WeatherData) {
@@ -42,6 +43,10 @@ class WeatherRepositoryTest {
         override suspend fun getLastNotificationDate(key: String): String? = notificationDates[key]
         override suspend fun saveLastNotificationDate(key: String, dateString: String) {
             notificationDates[key] = dateString
+        }
+        override suspend fun isWelcomeCompleted(): Boolean = welcomeCompleted
+        override suspend fun setWelcomeCompleted(completed: Boolean) {
+            welcomeCompleted = completed
         }
     }
 
