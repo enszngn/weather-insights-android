@@ -163,3 +163,13 @@ Historical log of major changes. One line per change; see `task.md` for the chec
 - **Problem**: Notifications previously used the Android system's generic warning/danger sign drawable (`android.R.drawable.stat_sys_warning`).
 - **Fix**:
   - `WeatherNotificationWorker.kt`: Imported `com.weatherinsights.daily.forecast.live.radar.R` and changed the notification builder to use `R.drawable.ic_weather_notification` which the user added under the drawable folder. Verified successful compilation.
+
+## Rain Probability Integration
+- **Goal**: Add rain probability (precipitation probability) to the hourly forecast timeline on the home screen (Issue #8).
+- **Implementation**:
+  - `OpenMeteoApiService.kt`: Updated the Open-Meteo API query to request `precipitation_probability` in the `hourly` query parameters.
+  - `OpenMeteoModels.kt`: Added `precipitation_probability` list to `OpenMeteoHourly` data class.
+  - `WeatherModels.kt`: Added `precipitationProbability` property (defaulting to `0`) to `HourlyForecast` model to support backward-compatibility.
+  - `OpenMeteoMapper.kt`: Mapped `precipitationProbability` from Open-Meteo response into the app's `HourlyForecast` model.
+  - `WeatherTimeline.kt`: Added a new row in `HourColumn` to render precipitation probability with a blue tinted droplet icon. Increased the space-filler height in `SolarEventColumn` to `28.dp` to maintain alignment.
+  - `WeatherRepositoryTest.kt`: Added `testOpenMeteoMapper_MapsPrecipitationProbabilityCorrectly` to verify correct mapper behavior. All unit tests compiled and passed.

@@ -111,6 +111,7 @@ Tests: `app/src/test/java/com/weatherinsights/` (WeatherRepositoryTest, WeatherV
 - [x] Verification: Add unit tests to WeatherViewModelTest and WeatherRepositoryTest for onboarding and verify all tests pass
 - [x] Bugfix: Add client-side reverse-geocoding fallback in WeatherViewModel and WeatherNotificationWorker when returned locationName is generic ("Current Location" or blank)
 - [x] Feature: Switch notification icon from generic danger sign to custom ic_weather_notification resource
+- [x] Feature: Integrate rain probability (precipitation probability) in the hourly weather forecast timeline (Issue #8)
 
 ## Not Started (from original roadmap, never completed)
 
