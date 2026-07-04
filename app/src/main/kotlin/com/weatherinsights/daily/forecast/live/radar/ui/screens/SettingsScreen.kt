@@ -134,10 +134,34 @@ fun SettingsScreen(
             }
         }
 
-        // Alarm Features Group Card (wraps Critical, Routine, and Smart notifications)
+        // Section 1: Critical & Instant Alerts (Always active, does not require exact alarms)
+        Text(
+            text = "Critical Notifications",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextSecondary,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
         GlassyPanel(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
-                if (!isAlarmPermissionGranted) {
+                NotificationToggleRow(
+                    title = "Severe Weather Alerts",
+                    subtitle = "Instant alerts before storms, hurricanes, heavy snow, or hail.",
+                    checked = preferences.criticalAlertsEnabled,
+                    onCheckedChange = {
+                        onPreferencesChanged(preferences.copy(criticalAlertsEnabled = it))
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Exact Alarm Features block
+        if (!isAlarmPermissionGranted) {
+            // Alarm permission is NOT given: wrap Routine, Smart, and Quiet Hours in the warning card
+            GlassyPanel(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -167,174 +191,19 @@ fun SettingsScreen(
                             )
                         }
                     }
-                }
 
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .alpha(if (isAlarmPermissionGranted) 1.0f else 0.5f)
-                    ) {
-                        // Section 1: Critical & Instant Alerts
-                        Text(
-                            text = "Critical Notifications",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                NotificationToggleRow(
-                                    title = "Severe Weather Alerts",
-                                    subtitle = "Instant alerts before storms, hurricanes, heavy snow, or hail.",
-                                    checked = preferences.criticalAlertsEnabled,
-                                    onCheckedChange = {
-                                        onPreferencesChanged(preferences.copy(criticalAlertsEnabled = it))
-                                    }
-                                )
-                            }
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .alpha(0.5f)
+                        ) {
+                            AlarmFeaturesList(
+                                preferences = preferences,
+                                onPreferencesChanged = onPreferencesChanged,
+                                onConfigTimeClick = { activeTimePickerFor = it }
+                            )
                         }
-
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // Section 2: Routine & Daily Summaries
-                        Text(
-                            text = "Routine Reports",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                NotificationToggleRow(
-                                    title = "Morning Report",
-                                    subtitle = "Daily weather summary and clothing suggestions to start your day.",
-                                    checked = preferences.morningReportEnabled,
-                                    onCheckedChange = {
-                                        onPreferencesChanged(preferences.copy(morningReportEnabled = it))
-                                    }
-                                )
-                                if (preferences.morningReportEnabled) {
-                                    TimeConfigurationRow(
-                                        label = "Report Time",
-                                        time = preferences.morningReportTime,
-                                        onClick = { activeTimePickerFor = TimePickerTarget.MorningReport }
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                NotificationToggleRow(
-                                    title = "Evening Report",
-                                    subtitle = "Summary enabling planning based on tomorrow's weather.",
-                                    checked = preferences.eveningReportEnabled,
-                                    onCheckedChange = {
-                                        onPreferencesChanged(preferences.copy(eveningReportEnabled = it))
-                                    }
-                                )
-                                if (preferences.eveningReportEnabled) {
-                                    TimeConfigurationRow(
-                                        label = "Report Time",
-                                        time = preferences.eveningReportTime,
-                                        onClick = { activeTimePickerFor = TimePickerTarget.EveningReport }
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // Section 3: Smart & Situational Alerts
-                        Text(
-                            text = "Smart Notifications",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                NotificationToggleRow(
-                                    title = "Weekend Summary",
-                                    subtitle = "Weekend weather forecast report sent on Friday afternoon.",
-                                    checked = preferences.weekendSummaryEnabled,
-                                    onCheckedChange = {
-                                        onPreferencesChanged(preferences.copy(weekendSummaryEnabled = it))
-                                    }
-                                )
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                NotificationToggleRow(
-                                    title = "Temperature Shock Alert",
-                                    subtitle = "Warns when there is a 10-degree temperature difference compared to the previous day.",
-                                    checked = preferences.tempShockEnabled,
-                                    onCheckedChange = {
-                                        onPreferencesChanged(preferences.copy(tempShockEnabled = it))
-                                    }
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // Section 4: Quiet Hours
-                        Text(
-                            text = "Quiet Hours",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Routine notifications other than critical alerts are silenced during these hours.",
-                                    fontSize = 13.sp,
-                                    color = TextSecondary,
-                                    modifier = Modifier.padding(bottom = 12.dp)
-                                )
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clickable { activeTimePickerFor = TimePickerTarget.SleepStart }
-                                            .padding(8.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Text("Start", fontSize = 14.sp, color = TextSecondary)
-                                        Text(
-                                            text = preferences.sleepStartTime,
-                                            fontSize = 20.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextPrimary
-                                        )
-                                    }
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clickable { activeTimePickerFor = TimePickerTarget.SleepEnd }
-                                            .padding(8.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Text("End", fontSize = 14.sp, color = TextSecondary)
-                                        Text(
-                                            text = preferences.sleepEndTime,
-                                            fontSize = 20.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextPrimary
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (!isAlarmPermissionGranted) {
                         Box(
                             modifier = Modifier
                                 .matchParentSize()
@@ -347,6 +216,13 @@ fun SettingsScreen(
                     }
                 }
             }
+        } else {
+            // Alarm permission IS given: the warning card goes away and features show up normally
+            AlarmFeaturesList(
+                preferences = preferences,
+                onPreferencesChanged = onPreferencesChanged,
+                onConfigTimeClick = { activeTimePickerFor = it }
+            )
         }
     }
 
@@ -618,4 +494,150 @@ private enum class TimePickerTarget {
     EveningReport,
     SleepStart,
     SleepEnd
+}
+
+@Composable
+private fun AlarmFeaturesList(
+    preferences: NotificationPreferences,
+    onPreferencesChanged: (NotificationPreferences) -> Unit,
+    onConfigTimeClick: (TimePickerTarget) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Section 2: Routine & Daily Summaries
+        Text(
+            text = "Routine Reports",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextSecondary,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                NotificationToggleRow(
+                    title = "Morning Report",
+                    subtitle = "Daily weather summary and clothing suggestions to start your day.",
+                    checked = preferences.morningReportEnabled,
+                    onCheckedChange = {
+                        onPreferencesChanged(preferences.copy(morningReportEnabled = it))
+                    }
+                )
+                if (preferences.morningReportEnabled) {
+                    TimeConfigurationRow(
+                        label = "Report Time",
+                        time = preferences.morningReportTime,
+                        onClick = { onConfigTimeClick(TimePickerTarget.MorningReport) }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                NotificationToggleRow(
+                    title = "Evening Report",
+                    subtitle = "Summary enabling planning based on tomorrow's weather.",
+                    checked = preferences.eveningReportEnabled,
+                    onCheckedChange = {
+                        onPreferencesChanged(preferences.copy(eveningReportEnabled = it))
+                    }
+                )
+                if (preferences.eveningReportEnabled) {
+                    TimeConfigurationRow(
+                        label = "Report Time",
+                        time = preferences.eveningReportTime,
+                        onClick = { onConfigTimeClick(TimePickerTarget.EveningReport) }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Section 3: Smart Notifications
+        Text(
+            text = "Smart Notifications",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextSecondary,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                NotificationToggleRow(
+                    title = "Weekend Summary",
+                    subtitle = "Weekend weather forecast report sent on Friday afternoon.",
+                    checked = preferences.weekendSummaryEnabled,
+                    onCheckedChange = {
+                        onPreferencesChanged(preferences.copy(weekendSummaryEnabled = it))
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                NotificationToggleRow(
+                    title = "Temperature Shock Alert",
+                    subtitle = "Warns when there is a 10-degree temperature difference compared to the previous day.",
+                    checked = preferences.tempShockEnabled,
+                    onCheckedChange = {
+                        onPreferencesChanged(preferences.copy(tempShockEnabled = it))
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Section 4: Quiet Hours
+        Text(
+            text = "Quiet Hours",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextSecondary,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        GlassyPanel(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Routine notifications other than critical alerts are silenced during these hours.",
+                    fontSize = 13.sp,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onConfigTimeClick(TimePickerTarget.SleepStart) }
+                            .padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("Start", fontSize = 14.sp, color = TextSecondary)
+                        Text(
+                            text = preferences.sleepStartTime,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onConfigTimeClick(TimePickerTarget.SleepEnd) }
+                            .padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("End", fontSize = 14.sp, color = TextSecondary)
+                        Text(
+                            text = preferences.sleepEndTime,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
