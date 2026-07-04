@@ -101,7 +101,7 @@ fun WelcomeScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "A cloud-first, hyper-local weather experience with smart notifications and daily insight reports.",
+                    text = "Weather experience with smart notifications and daily insight reports.",
                     fontSize = 15.sp,
                     color = TextSecondary,
                     textAlign = TextAlign.Center,
@@ -182,7 +182,8 @@ fun WelcomeScreen(
                             ) {
                                 Text(
                                     text = "Grant Location Access",
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.Black
                                 )
                             }
                             Spacer(modifier = Modifier.height(6.dp))
@@ -324,7 +325,8 @@ fun WelcomeScreen(
                 Text(
                     text = "Get Started",
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
                 )
             }
         }
