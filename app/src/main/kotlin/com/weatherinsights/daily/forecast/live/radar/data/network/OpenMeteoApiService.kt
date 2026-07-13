@@ -4,6 +4,7 @@ import com.weatherinsights.daily.forecast.live.radar.data.model.OpenMeteoRespons
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Query
+import retrofit2.http.Url
 
 interface OpenMeteoApiService {
     @GET("v1/forecast")
@@ -15,5 +16,16 @@ interface OpenMeteoApiService {
         @Query("daily") daily: String = "uv_index_max,sunrise,sunset",
         @Query("timezone") timezone: String = "auto",
         @Query("forecast_days") forecastDays: Int = 8
+    ): Response<OpenMeteoResponse>
+
+    @GET
+    suspend fun getYesterdayForecast(
+        @Url url: String,
+        @Query("latitude") latitude: Double,
+        @Query("longitude") longitude: Double,
+        @Query("hourly") hourly: String = "temperature_2m",
+        @Query("start_date") startDate: String,
+        @Query("end_date") endDate: String,
+        @Query("timezone") timezone: String = "auto"
     ): Response<OpenMeteoResponse>
 }

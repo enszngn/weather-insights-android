@@ -12,9 +12,9 @@ data class OpenMeteoResponse(
     val timezone: String,
     @SerialName("timezone_abbreviation") val timezoneAbbreviation: String,
     val elevation: Double,
-    val current: OpenMeteoCurrent,
-    val hourly: OpenMeteoHourly,
-    val daily: OpenMeteoDaily
+    val current: OpenMeteoCurrent? = null,
+    val hourly: OpenMeteoHourly? = null,
+    val daily: OpenMeteoDaily? = null
 )
 
 @Serializable

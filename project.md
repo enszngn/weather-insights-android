@@ -101,6 +101,7 @@ Tests: `app/src/test/java/com/weatherinsights/` (WeatherRepositoryTest, WeatherV
 - [x] Phase 9.9: Reposition hourly weather timeline panel higher up (centered at 37.5% vertically from top)
 - [x] Project: Update app version to 1.0.0 in build.gradle.kts
 - [x] Project: Update app version to 1.1.0 and increment versionCode to 2 in build.gradle.kts
+- [x] Project: Update app version to 1.1.1 and increment versionCode to 3 in build.gradle.kts
 - [x] Project: Raise min API level to 26 in build.gradle.kts
 - [x] Bugfix: Fix Android Lint MissingPermission errors in DefaultLocationTracker.kt by adding @SuppressLint("MissingPermission")
 - [x] Feature: Implement IP-based location fallback (omitting query parameters on weather API request) when location permissions are denied/disabled
@@ -113,6 +114,11 @@ Tests: `app/src/test/java/com/weatherinsights/` (WeatherRepositoryTest, WeatherV
 - [x] Bugfix: Add client-side reverse-geocoding fallback in WeatherViewModel and WeatherNotificationWorker when returned locationName is generic ("Current Location" or blank)
 - [x] Feature: Switch notification icon from generic danger sign to custom ic_weather_notification resource
 - [x] Feature: Integrate rain probability (precipitation probability) in the hourly weather forecast timeline (Issue #8)
+- [x] Feature: Implement temperature comparison with yesterday window & UI empty space optimizations (Issue #10)
+- [x] UI: Center all weather bubbles exactly between temperature text and bottom screen edge, and make header text windows bigger and adaptive to prevent clipping on narrow screens.
+- [x] Feature: Retrieve yesterday's 24 hourly weather conditions from Open-Meteo's standard Forecast API (`https://api.open-meteo.com/v1/forecast`) and implement hour-by-hour temperature comparison.
+- [x] Bugfix: Validate that cached yesterday weather list size is exactly 24 to handle single-value upgrade scenarios, and add JVM-safe console logging to yesterday's weather requests.
+- [x] UI: Make hourly weather timeline panel height 30% taller (increased from 130.dp to 170.dp).
 
 ## Not Started (from original roadmap, never completed)
 

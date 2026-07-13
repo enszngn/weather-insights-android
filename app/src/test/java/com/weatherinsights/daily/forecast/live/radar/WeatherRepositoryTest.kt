@@ -49,6 +49,17 @@ class WeatherRepositoryTest {
         override suspend fun setWelcomeCompleted(completed: Boolean) {
             welcomeCompleted = completed
         }
+
+        var yesterdayTempDate: String? = null
+        var yesterdayTempValues: List<Double>? = null
+
+        override suspend fun getYesterdayHourlyTemps(dateString: String): List<Double>? {
+            return if (yesterdayTempDate == dateString) yesterdayTempValues else null
+        }
+        override suspend fun saveYesterdayHourlyTemps(dateString: String, temps: List<Double>) {
+            yesterdayTempDate = dateString
+            yesterdayTempValues = temps
+        }
     }
 
     private fun createDummyWeatherData() = WeatherData(
@@ -117,6 +128,18 @@ class WeatherRepositoryTest {
             daily: String,
             timezone: String,
             forecastDays: Int
+        ): Response<OpenMeteoResponse> {
+            return getForecastResponse()
+        }
+
+        override suspend fun getYesterdayForecast(
+            url: String,
+            latitude: Double,
+            longitude: Double,
+            hourly: String,
+            startDate: String,
+            endDate: String,
+            timezone: String
         ): Response<OpenMeteoResponse> {
             return getForecastResponse()
         }
@@ -217,5 +240,49 @@ class WeatherRepositoryTest {
         val firstHour = firstDay?.hourly?.firstOrNull()
         org.junit.Assert.assertNotNull(firstHour)
         assertEquals(75, firstHour?.precipitationProbability)
+    }
+
+    @Test
+    fun testGetYesterdayTemperature_CacheHit() = runBlocking {
+        val localSource = FakeWeatherLocalSource().apply {
+            yesterdayTempDate = "2026-07-12"
+            yesterdayTempValues = List(24) { 24.5 }
+        }
+        val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService(), localSource)
+        val result = repository.getYesterdayTemperature(52.52, 13.41, "2026-07-12")
+        assertEquals(24.5, result?.firstOrNull() ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun testGetYesterdayTemperature_CacheMiss_NetworkSuccess() = runBlocking {
+        val localSource = FakeWeatherLocalSource()
+        val fakeMeteo = OpenMeteoResponse(
+            latitude = 52.52,
+            longitude = 13.41,
+            generationTimeMs = 0.1,
+            utcOffsetSeconds = 0,
+            timezone = "UTC",
+            timezoneAbbreviation = "UTC",
+            elevation = 10.0,
+            hourly = OpenMeteoHourly(
+                time = List(24) { "2026-07-12T$it:00" },
+                temperature2m = List(24) { 20.0 },
+                relativeHumidity2m = List(24) { 50 },
+                windSpeed10m = List(24) { 10.0 },
+                weatherCode = List(24) { 0 }
+            ),
+            daily = OpenMeteoDaily(emptyList(), emptyList())
+        )
+        val fakeOpenMeteoApi = FakeOpenMeteoApiService().apply {
+            getForecastResponse = {
+                Response.success(fakeMeteo)
+            }
+        }
+        val repository = WeatherRepository(FakeWeatherApiService(), fakeOpenMeteoApi, localSource)
+        val result = repository.getYesterdayTemperature(52.52, 13.41, "2026-07-12")
+
+        assertEquals(20.0, result?.firstOrNull() ?: 0.0, 0.001)
+        assertEquals("2026-07-12", localSource.yesterdayTempDate)
+        assertEquals(20.0, localSource.yesterdayTempValues?.firstOrNull() ?: 0.0, 0.001)
     }
 }

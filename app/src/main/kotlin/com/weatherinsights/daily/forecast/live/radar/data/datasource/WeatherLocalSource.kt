@@ -37,6 +37,8 @@ interface WeatherLocalSource {
     suspend fun saveLastNotificationDate(key: String, dateString: String)
     suspend fun isWelcomeCompleted(): Boolean
     suspend fun setWelcomeCompleted(completed: Boolean)
+    suspend fun getYesterdayHourlyTemps(dateString: String): List<Double>?
+    suspend fun saveYesterdayHourlyTemps(dateString: String, temps: List<Double>)
 }
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "weather_settings")
@@ -52,6 +54,8 @@ class DataStoreWeatherLocalSource @Inject constructor(
     private val REFRESH_WINDOW_START_KEY = stringPreferencesKey("refresh_window_start")
     private val NOTIFICATION_PREFS_KEY = stringPreferencesKey("notification_preferences")
     private val WELCOME_COMPLETED_KEY = booleanPreferencesKey("welcome_completed")
+    private val YESTERDAY_TEMP_DATE_KEY = stringPreferencesKey("yesterday_temp_date")
+    private val YESTERDAY_TEMP_VALUE_KEY = stringPreferencesKey("yesterday_temp_value")
 
     override suspend fun getCachedWeather(): WeatherData? {
         return try {
@@ -162,6 +166,37 @@ class DataStoreWeatherLocalSource @Inject constructor(
         try {
             context.dataStore.edit { preferences ->
                 preferences[WELCOME_COMPLETED_KEY] = completed
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+    }
+
+    override suspend fun getYesterdayHourlyTemps(dateString: String): List<Double>? {
+        return try {
+            val prefs = context.dataStore.data.firstOrNull() ?: return null
+            val savedDate = prefs[YESTERDAY_TEMP_DATE_KEY]
+            if (savedDate == dateString) {
+                val csv = prefs[YESTERDAY_TEMP_VALUE_KEY]
+                if (!csv.isNullOrEmpty()) {
+                    csv.split(",").mapNotNull { it.toDoubleOrNull() }
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    override suspend fun saveYesterdayHourlyTemps(dateString: String, temps: List<Double>) {
+        try {
+            val csv = temps.joinToString(",")
+            context.dataStore.edit { prefs ->
+                prefs[YESTERDAY_TEMP_DATE_KEY] = dateString
+                prefs[YESTERDAY_TEMP_VALUE_KEY] = csv
             }
         } catch (e: Exception) {
             // Ignore
