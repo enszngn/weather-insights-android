@@ -118,10 +118,12 @@ class WeatherRepository @Inject constructor(
 
     suspend fun getYesterdayTemperature(lat: Double, lon: Double, dateString: String): List<Double>? {
         val localTemps = localSource.getYesterdayHourlyTemps(dateString)
-        if (localTemps != null) {
+        if (!localTemps.isNullOrEmpty() && localTemps.size == 24) {
+            println("WeatherRepository: Yesterday cache hit for date: $dateString")
             return localTemps
         }
 
+        println("WeatherRepository: Yesterday cache miss. Fetching from API for date: $dateString, lat: $lat, lon: $lon")
         try {
             val response = openMeteoApiService.getYesterdayForecast(
                 url = "https://api.open-meteo.com/v1/forecast",
@@ -130,16 +132,21 @@ class WeatherRepository @Inject constructor(
                 startDate = dateString,
                 endDate = dateString
             )
+            println("WeatherRepository: Yesterday API response code: ${response.code()}, isSuccessful: ${response.isSuccessful}")
             if (response.isSuccessful) {
                 val body = response.body()
                 val hourlyTemps = body?.hourly?.temperature2m
+                println("WeatherRepository: Yesterday API response hourly temps size: ${hourlyTemps?.size}")
                 if (!hourlyTemps.isNullOrEmpty()) {
                     localSource.saveYesterdayHourlyTemps(dateString, hourlyTemps)
                     return hourlyTemps
                 }
+            } else {
+                println("WeatherRepository: Yesterday API error body: ${response.errorBody()?.string()}")
             }
         } catch (e: Exception) {
-            // Ignore
+            println("WeatherRepository: Error fetching yesterday's temperature: ${e.message}")
+            e.printStackTrace()
         }
         return null
     }

@@ -207,13 +207,13 @@ Historical log of major changes. One line per change; see `task.md` for the chec
     - Reduced temperature text size from `64.sp` to `56.sp` to scale better on smaller mobile screens.
   - Verified compilation and ran regression tests to ensure stability.
 
-## Hourly Yesterday Weather Comparison & Open-Meteo Archive API Integration
-- **Goal**: Persist and fetch yesterday's full 24 hourly temperature data points from the Open-Meteo Archive API (`https://archive-api.open-meteo.com/v1/archive`), and compare the current hour's temperature against yesterday's corresponding hour temperature.
+- ## Hourly Yesterday Weather Comparison & Open-Meteo Forecast API Integration
+- **Goal**: Persist and fetch yesterday's full 24 hourly temperature data points from the Open-Meteo Forecast API (`https://api.open-meteo.com/v1/forecast`), and compare the current hour's temperature against yesterday's corresponding hour temperature.
 - **Implementation**:
-  - `OpenMeteoApiService.kt`: Refactored `getYesterdayForecast` using Retrofit's `@Url` annotation to allow querying the absolute archive API endpoint dynamically.
-  - `WeatherLocalSource.kt`: Replaced single yesterday temperature storage methods with `getYesterdayHourlyTemps` and `saveYesterdayHourlyTemps` to retrieve and save yesterday's 24 hourly temperatures as a comma-separated CSV string in `DataStore` preferences.
-  - `WeatherRepository.kt`: Refactored `getYesterdayTemperature` to fetch 24 hourly temperatures from the Archive API using the dynamic URL when not found in the local `DataStore` cache.
-  - `WeatherUiState.kt` & `WeatherViewModel.kt`: Updated `WeatherUiState.Success` to hold `yesterdayHourlyTemps` list. Modified the ViewModel to retrieve and assign the 24 hourly temperatures list on success paths.
+-   - `OpenMeteoApiService.kt`: Refactored `getYesterdayForecast` using Retrofit's `@Url` annotation to allow querying the absolute endpoint dynamically.
+-   - `WeatherLocalSource.kt`: Replaced single yesterday temperature storage methods with `getYesterdayHourlyTemps` and `saveYesterdayHourlyTemps` to retrieve and save yesterday's 24 hourly temperatures as a comma-separated CSV string in `DataStore` preferences.
+-   - `WeatherRepository.kt`: Refactored `getYesterdayTemperature` to fetch 24 hourly temperatures from the standard Forecast API using the dynamic URL (with `start_date` and `end_date` parameters) when not found in the local `DataStore` cache. This avoids the 2-5 day delay inherent to the Archive API reanalysis data product.
+-   - `WeatherUiState.kt` & `WeatherViewModel.kt`: Updated `WeatherUiState.Success` to hold `yesterdayHourlyTemps` list. Modified the ViewModel to retrieve and assign the 24 hourly temperatures list on success paths.
   - `HomeScreen.kt` & `WeatherTimeline.kt`: Passed the list of 24 hourly temperatures to `WeatherContent`. In the UI, resolved the current hour (`LocalTime.now().hour`) and queried yesterday's corresponding temperature from the list to pass to `YesterdayComparisonPanel`.
   - `WeatherRepositoryTest.kt` & `WeatherViewModelTest.kt`: Refactored unit tests and stubs to accommodate the new method signatures and test caching and mapping of yesterday's hourly temperatures list. All tests passed.
 
@@ -228,3 +228,12 @@ Historical log of major changes. One line per change; see `task.md` for the chec
 - **Implementation**:
   - `build.gradle.kts`: Bumped `versionCode` to `3` and `versionName` to `"1.1.1"`.
   - Verified successful project compilation and ran test suite.
+
+## Emulator Fetching & Cache Migration Robustness
+- **Goal**: Fix failure of yesterday's temperature loading on some emulators.
+- **Implementation**:
+  - `WeatherRepository.kt`:
+    - Swapped dynamic URL query from Archive API (`https://archive-api.open-meteo.com/v1/archive`) to the standard Forecast API (`https://api.open-meteo.com/v1/forecast`) which provides real-time access to recent history without delay.
+    - Added JVM-safe console `println` logging output to track yesterday's query requests, response codes, list sizes, error bodies, and exceptions without causing JVM unit tests to crash on mock Android log operations.
+    - Implemented a cache validation check ensuring the retrieved cached yesterday temperature list has exactly 24 hourly readings. This guarantees that old single-value caches saved from older versions of the app do not trigger false cache hits (which would return null on hourly get indexes) and instead trigger a clean network cache-miss reload.
+  - `WeatherRepositoryTest.kt`: Updated stubs to mock a correct 24-element list in yesterday cache hit test cases. All tests passed.

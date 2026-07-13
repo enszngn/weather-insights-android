@@ -246,7 +246,7 @@ class WeatherRepositoryTest {
     fun testGetYesterdayTemperature_CacheHit() = runBlocking {
         val localSource = FakeWeatherLocalSource().apply {
             yesterdayTempDate = "2026-07-12"
-            yesterdayTempValues = listOf(24.5)
+            yesterdayTempValues = List(24) { 24.5 }
         }
         val repository = WeatherRepository(FakeWeatherApiService(), FakeOpenMeteoApiService(), localSource)
         val result = repository.getYesterdayTemperature(52.52, 13.41, "2026-07-12")

@@ -116,7 +116,8 @@ Tests: `app/src/test/java/com/weatherinsights/` (WeatherRepositoryTest, WeatherV
 - [x] Feature: Integrate rain probability (precipitation probability) in the hourly weather forecast timeline (Issue #8)
 - [x] Feature: Implement temperature comparison with yesterday window & UI empty space optimizations (Issue #10)
 - [x] UI: Center all weather bubbles exactly between temperature text and bottom screen edge, and make header text windows bigger and adaptive to prevent clipping on narrow screens.
-- [x] Feature: Retrieve yesterday's 24 hourly weather conditions from Open-Meteo's Archive API (`https://archive-api.open-meteo.com/v1/archive`) and implement hour-by-hour temperature comparison.
+- [x] Feature: Retrieve yesterday's 24 hourly weather conditions from Open-Meteo's standard Forecast API (`https://api.open-meteo.com/v1/forecast`) and implement hour-by-hour temperature comparison.
+- [x] Bugfix: Validate that cached yesterday weather list size is exactly 24 to handle single-value upgrade scenarios, and add JVM-safe console logging to yesterday's weather requests.
 - [x] UI: Make hourly weather timeline panel height 30% taller (increased from 130.dp to 170.dp).
 
 ## Not Started (from original roadmap, never completed)
