@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.weatherinsights.daily.forecast.live.radar.data.model.TimelineEntry
@@ -73,6 +74,7 @@ import kotlin.math.roundToInt
 @Composable
 internal fun WeatherContent(
     weatherData: WeatherData,
+    yesterdayHourlyTemps: List<Double>?,
     onRefresh: () -> Unit,
     canRefresh: Boolean,
     isRefreshing: Boolean,
@@ -101,28 +103,34 @@ internal fun WeatherContent(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(24.dp),
+                        .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Header: city name + current day + temperature (top 20%)
+                    // Header: city name + current day + temperature
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(0.2f),
+                            .padding(vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
                         Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Text(
                                 text = weatherData.locationName,
-                                fontSize = 44.sp,
+                                fontSize = 36.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimary,
                                 letterSpacing = 0.5.sp,
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
 
@@ -192,24 +200,26 @@ internal fun WeatherContent(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "${currentTemp.roundToInt()}°",
-                            fontSize = 64.sp,
+                            fontSize = 56.sp,
                             fontWeight = FontWeight.Light,
                             color = TextPrimary
                         )
                     }
 
-                    // Timeline panel (center 35%)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(0.35f)
-                            .padding(vertical = 16.dp),
-                        contentAlignment = Alignment.Center
+                    // Spacer 1 to consume vertical space above the bubbles
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // Unified panels container (sits contiguous with 10.dp gaps)
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        // 1. Timeline panel
                         GlassyPanel(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(130.dp)
+                                .height(170.dp)
                         ) {
                             Box(
                                 modifier = Modifier
@@ -242,45 +252,53 @@ internal fun WeatherContent(
                                 }
                             }
                         }
+
+                        // 2. Yesterday comparison window
+                        YesterdayComparisonPanel(
+                            currentTemp = selectedDay.temp,
+                            yesterdayTemp = if (pageIndex == 0) yesterdayHourlyTemps?.getOrNull(currentHour) else forecast[pageIndex - 1].temp
+                        )
+
+                        // 3. Metric panels (bottom bubble)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(115.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val currentHumidity = selectedDay.humidity
+                            val currentUv = selectedDay.uvIndex
+
+                            MetricPanel(
+                                icon = Icons.Rounded.WaterDrop,
+                                iconColor = Color(0xFF81D4FA),
+                                title = "Humidity",
+                                value = "${currentHumidity}%",
+                                progress = currentHumidity / 100f,
+                                progressBarColor = Color(0xFF81D4FA)
+                            )
+
+                            MetricPanel(
+                                icon = Icons.Rounded.Air,
+                                iconColor = Color.White,
+                                title = "Wind",
+                                value = "${currentWindSpeed.roundToInt()} km/h"
+                            )
+
+                            MetricPanel(
+                                icon = Icons.Rounded.WbSunny,
+                                iconColor = Color(0xFFFFD166),
+                                title = "UV Index",
+                                value = "${currentUv.roundToInt()}",
+                                progress = (currentUv / 12.0).coerceIn(0.0, 1.0).toFloat(),
+                                progressBarColor = Color(0xFFFFD166)
+                            )
+                        }
                     }
 
-                    // Bottom: 3 metric panels (bottom 45%)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(0.45f)
-                            .padding(vertical = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val currentHumidity = selectedDay.humidity
-                        val currentUv = selectedDay.uvIndex
-
-                        MetricPanel(
-                            icon = Icons.Rounded.WaterDrop,
-                            iconColor = Color(0xFF81D4FA),
-                            title = "Humidity",
-                            value = "${currentHumidity}%",
-                            progress = currentHumidity / 100f,
-                            progressBarColor = Color(0xFF81D4FA)
-                        )
-
-                        MetricPanel(
-                            icon = Icons.Rounded.Air,
-                            iconColor = Color.White,
-                            title = "Wind",
-                            value = "${currentWindSpeed.roundToInt()} km/h"
-                        )
-
-                        MetricPanel(
-                            icon = Icons.Rounded.WbSunny,
-                            iconColor = Color(0xFFFFD166),
-                            title = "UV Index",
-                            value = "${currentUv.roundToInt()}",
-                            progress = (currentUv / 12.0).coerceIn(0.0, 1.0).toFloat(),
-                            progressBarColor = Color(0xFFFFD166)
-                        )
-                    }
+                    // Spacer 2 to consume vertical space below the bubbles
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -542,6 +560,90 @@ private fun RowScope.MetricPanel(
                 }
             } else {
                 Spacer(modifier = Modifier.height(4.dp))
+            }
+        }
+     }
+}
+
+@Composable
+private fun YesterdayComparisonPanel(
+    currentTemp: Double,
+    yesterdayTemp: Double?
+) {
+    GlassyPanel(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            if (yesterdayTemp != null) {
+                val tempDiff = currentTemp - yesterdayTemp
+                val diffRounded = tempDiff.roundToInt()
+
+                val text = when {
+                    diffRounded > 0 -> "$diffRounded°C warmer than yesterday"
+                    diffRounded < 0 -> "${kotlin.math.abs(diffRounded)}°C cooler than yesterday"
+                    else -> "Same temperature as yesterday"
+                }
+
+                Text(
+                    text = text,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
+                )
+
+                // Premium badge on the right
+                val badgeText = when {
+                    diffRounded > 0 -> "+$diffRounded°"
+                    diffRounded < 0 -> "$diffRounded°"
+                    else -> "0°"
+                }
+                val badgeBgColor = when {
+                    diffRounded > 0 -> Color(0xFFFFD166).copy(alpha = 0.25f)
+                    diffRounded < 0 -> Color(0xFF81D4FA).copy(alpha = 0.25f)
+                    else -> Color.White.copy(alpha = 0.15f)
+                }
+                val badgeTextColor = when {
+                    diffRounded > 0 -> Color(0xFFFFD166)
+                    diffRounded < 0 -> Color(0xFF81D4FA)
+                    else -> Color.White
+                }
+
+                Box(
+                    modifier = Modifier
+                        .background(badgeBgColor, shape = CircleShape)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = badgeText,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = badgeTextColor
+                    )
+                }
+            } else {
+                Text(
+                    text = "Retrieving yesterday's weather...",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+
+                // Indeterminate loading indicator or small icon
+                Icon(
+                    imageVector = Icons.Rounded.WbSunny,
+                    contentDescription = "Loading",
+                    tint = Color.White.copy(alpha = 0.4f),
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

@@ -179,3 +179,52 @@ Historical log of major changes. One line per change; see `task.md` for the chec
     - Replaced the bottom wind speed dashboard with a horizontal `Row` containing three instances of `MetricPanel` for **Humidity** (with a progress bar from 0% to 100%), **Wind Speed** (without progress bar), and **UV Index** (with a progress bar from 0 to 12).
   - `WeatherMapper.kt`: Mapped drizzle and rainy weather codes to `Icons.Rounded.Thunderstorm` (raining cloud icon) instead of `Icons.Rounded.WaterDrop`.
   - `WeatherRepositoryTest.kt`: Added `testOpenMeteoMapper_MapsPrecipitationProbabilityCorrectly` to verify correct mapper behavior. All unit tests compiled and passed.
+
+## Yesterday's Temperature Comparison & UI Optimizations (Issue #10)
+- **Goal**: Implement a temperature comparison panel against yesterday's weather with a short sentence describing the difference, and eliminate empty vertical spaces in the success screen UI by positioning components contiguously.
+- **Implementation**:
+  - `OpenMeteoApiService.kt`: Defined `getYesterdayForecast` to request hourly historical temperatures from Open-Meteo with `start_date` and `end_date`.
+  - `OpenMeteoModels.kt` & `OpenMeteoMapper.kt`: Marked `current`, `hourly`, and `daily` optional in `OpenMeteoResponse` to support query responses for historical ranges that omit current/daily blocks. Added corresponding safe nullability mappings in the weather data mapper.
+  - `WeatherLocalSource.kt`: Implemented `getYesterdayTemp` and `saveYesterdayTemp` methods to retrieve and cache yesterday's average temperature in DataStore with its date key to prevent outdated cache usage.
+  - `WeatherRepository.kt`: Implemented `getYesterdayTemperature` which checks local DataStore storage first and requests Open-Meteo via `getYesterdayForecast` if not cached, averaging and caching the hourly temperatures.
+  - `WeatherViewModel.kt` & `WeatherUiState.kt`: Added `yesterdayTemp` parameter to `WeatherUiState.Success`. In the ViewModel, triggered yesterday's temperature loading on success flows (from cache or fresh network fetches) and preserved the value during client-side reverse-geocoding updates.
+  - `HomeScreen.kt`: Passed the resolved `yesterdayTemp` from UI state to the `WeatherContent` composable.
+  - `WeatherTimeline.kt`:
+    - Refactored `WeatherContent` to nest the Timeline, YesterdayComparisonPanel, and Metric panels in a contiguous container with fixed `10.dp` gaps, resolving empty stretch spaces.
+    - Added a private `YesterdayComparisonPanel` composable displaying relative warm/cool descriptions and a color-tinted temperature difference badge.
+    - Adjusted screen top/bottom padding and used a weighted spacer between the header and bottom panels to center/align them nicely.
+  - `WeatherRepositoryTest.kt` & `WeatherViewModelTest.kt`: Updated testing fakes to support new interface methods, and added new unit tests `testGetYesterdayTemperature_CacheHit` and `testGetYesterdayTemperature_CacheMiss_NetworkSuccess` in `WeatherRepositoryTest.kt`. All tests compiled and passed successfully.
+
+## Centered Weather Bubbles & Header Sizing Optimizations
+- **Goal**: Center the unified weather bubbles exactly in the middle of the area between the temperature text and the bottom screen edge, and adaptively handle long location names and temperature texts to prevent clipping on narrower devices.
+- **Implementation**:
+  - `WeatherTimeline.kt`:
+    - Imported `TextOverflow` for text truncation.
+    - Updated outer `Column` layout to use two equal-weighted `Spacer`s (one above and one below the unified panels container) to center the weather bubbles container exactly in the middle of the space under the temperature text and the bottom screen edge.
+    - Set outer `Column` padding to `24.dp` on all sides to establish consistent alignment.
+    - Added `vertical = 12.dp` padding to the Header `Column` to increase its allocated space.
+    - Configured the location name Row to `fillMaxWidth()` and set the `locationName` `Text` to `fontSize = 36.sp`, `maxLines = 1`, `overflow = TextOverflow.Ellipsis`, and assigned it `Modifier.weight(1f, fill = false)`. This allows the text to center properly when short, while safely truncating and preventing it from pushing refresh/settings buttons off-screen when long.
+    - Reduced temperature text size from `64.sp` to `56.sp` to scale better on smaller mobile screens.
+  - Verified compilation and ran regression tests to ensure stability.
+
+## Hourly Yesterday Weather Comparison & Open-Meteo Archive API Integration
+- **Goal**: Persist and fetch yesterday's full 24 hourly temperature data points from the Open-Meteo Archive API (`https://archive-api.open-meteo.com/v1/archive`), and compare the current hour's temperature against yesterday's corresponding hour temperature.
+- **Implementation**:
+  - `OpenMeteoApiService.kt`: Refactored `getYesterdayForecast` using Retrofit's `@Url` annotation to allow querying the absolute archive API endpoint dynamically.
+  - `WeatherLocalSource.kt`: Replaced single yesterday temperature storage methods with `getYesterdayHourlyTemps` and `saveYesterdayHourlyTemps` to retrieve and save yesterday's 24 hourly temperatures as a comma-separated CSV string in `DataStore` preferences.
+  - `WeatherRepository.kt`: Refactored `getYesterdayTemperature` to fetch 24 hourly temperatures from the Archive API using the dynamic URL when not found in the local `DataStore` cache.
+  - `WeatherUiState.kt` & `WeatherViewModel.kt`: Updated `WeatherUiState.Success` to hold `yesterdayHourlyTemps` list. Modified the ViewModel to retrieve and assign the 24 hourly temperatures list on success paths.
+  - `HomeScreen.kt` & `WeatherTimeline.kt`: Passed the list of 24 hourly temperatures to `WeatherContent`. In the UI, resolved the current hour (`LocalTime.now().hour`) and queried yesterday's corresponding temperature from the list to pass to `YesterdayComparisonPanel`.
+  - `WeatherRepositoryTest.kt` & `WeatherViewModelTest.kt`: Refactored unit tests and stubs to accommodate the new method signatures and test caching and mapping of yesterday's hourly temperatures list. All tests passed.
+
+## Hourly Weather Timeline Panel Height Optimization
+- **Goal**: Make the hourly weather timeline window ~30% taller by extending its upper limit upward without changing any other component alignments.
+- **Implementation**:
+  - `WeatherTimeline.kt`: Changed the hourly weather timeline `GlassyPanel` height from `130.dp` to `170.dp`. This moves the top limit of the timeline panel upward (closer to the temperature text), while keeping its center alignment and other screen elements untouched.
+  - Verified compilation and ran test suite to ensure successful validation.
+
+## App Version Bump (versionCode 3, versionName 1.1.1)
+- **Goal**: Update app versioning parameters in preparation for release or testing deployment.
+- **Implementation**:
+  - `build.gradle.kts`: Bumped `versionCode` to `3` and `versionName` to `"1.1.1"`.
+  - Verified successful project compilation and ran test suite.

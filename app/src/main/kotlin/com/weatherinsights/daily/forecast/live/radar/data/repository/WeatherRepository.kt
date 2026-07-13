@@ -115,4 +115,32 @@ class WeatherRepository @Inject constructor(
             emit(Result.failure(e))
         }
     }
+
+    suspend fun getYesterdayTemperature(lat: Double, lon: Double, dateString: String): List<Double>? {
+        val localTemps = localSource.getYesterdayHourlyTemps(dateString)
+        if (localTemps != null) {
+            return localTemps
+        }
+
+        try {
+            val response = openMeteoApiService.getYesterdayForecast(
+                url = "https://archive-api.open-meteo.com/v1/archive",
+                latitude = lat,
+                longitude = lon,
+                startDate = dateString,
+                endDate = dateString
+            )
+            if (response.isSuccessful) {
+                val body = response.body()
+                val hourlyTemps = body?.hourly?.temperature2m
+                if (!hourlyTemps.isNullOrEmpty()) {
+                    localSource.saveYesterdayHourlyTemps(dateString, hourlyTemps)
+                    return hourlyTemps
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+        return null
+    }
 }

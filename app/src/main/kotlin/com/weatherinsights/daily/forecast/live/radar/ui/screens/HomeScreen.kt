@@ -91,6 +91,7 @@ fun HomeScreen(
                     is WeatherUiState.Loading -> LoadingView()
                     is WeatherUiState.Success -> WeatherContent(
                         weatherData = uiState.weatherData,
+                        yesterdayHourlyTemps = uiState.yesterdayHourlyTemps,
                         onRefresh = onRefresh,
                         canRefresh = canRefresh,
                         isRefreshing = isRefreshing,

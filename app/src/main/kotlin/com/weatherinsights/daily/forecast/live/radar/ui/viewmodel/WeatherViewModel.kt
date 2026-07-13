@@ -124,6 +124,7 @@ class WeatherViewModel @Inject constructor(
         val cached = repository.getCachedWeather()
         if (cached != null && _uiState.value is WeatherUiState.Loading) {
             _uiState.value = WeatherUiState.Success(cached)
+            loadYesterdayTemperature(cached.lat, cached.lon)
         }
         loadWeather()
     }
@@ -156,6 +157,7 @@ class WeatherViewModel @Inject constructor(
                         onSuccess = { data ->
                             val finalData = if (cityName != null) data.copy(locationName = cityName) else data
                             _uiState.value = WeatherUiState.Success(finalData)
+                            loadYesterdayTemperature(finalData.lat, finalData.lon)
 
                             // Background fallback: if the city name is still generic ("Current Location" or blank)
                             // but we have valid coordinates, try reverse-geocoding them on the client.
@@ -172,7 +174,7 @@ class WeatherViewModel @Inject constructor(
                                             currentState.weatherData.lat == finalData.lat &&
                                             currentState.weatherData.lon == finalData.lon
                                         ) {
-                                            _uiState.value = WeatherUiState.Success(updatedData)
+                                            _uiState.value = WeatherUiState.Success(updatedData, currentState.yesterdayHourlyTemps)
                                         }
                                     }
                                 }
@@ -216,5 +218,20 @@ class WeatherViewModel @Inject constructor(
         // forceRefresh = true bypasses the lastLocation cache so the new emulator
         // location (or real device position) is always picked up immediately.
         loadWeather(forceRefresh = true)
+    }
+
+    private fun loadYesterdayTemperature(lat: Double, lon: Double) {
+        viewModelScope.launch {
+            val yesterday = java.time.LocalDate.now().minusDays(1)
+            val dateString = yesterday.toString()
+            val temps = repository.getYesterdayTemperature(lat, lon, dateString)
+            val currentState = _uiState.value
+            if (currentState is WeatherUiState.Success &&
+                currentState.weatherData.lat == lat &&
+                currentState.weatherData.lon == lon
+            ) {
+                _uiState.value = currentState.copy(yesterdayHourlyTemps = temps)
+            }
+        }
     }
 }

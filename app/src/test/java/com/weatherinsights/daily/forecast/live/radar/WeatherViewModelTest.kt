@@ -89,6 +89,17 @@ class WeatherViewModelTest {
         override suspend fun setWelcomeCompleted(completed: Boolean) {
             welcomeCompleted = completed
         }
+
+        var yesterdayTempDate: String? = null
+        var yesterdayTempValues: List<Double>? = null
+
+        override suspend fun getYesterdayHourlyTemps(dateString: String): List<Double>? {
+            return if (yesterdayTempDate == dateString) yesterdayTempValues else null
+        }
+        override suspend fun saveYesterdayHourlyTemps(dateString: String, temps: List<Double>) {
+            yesterdayTempDate = dateString
+            yesterdayTempValues = temps
+        }
     }
 
     class FakeWeatherApiService : WeatherApiService {
@@ -112,6 +123,31 @@ class WeatherViewModelTest {
             daily: String,
             timezone: String,
             forecastDays: Int
+        ): Response<OpenMeteoResponse> {
+            return Response.success(
+                OpenMeteoResponse(
+                    latitude = 0.0,
+                    longitude = 0.0,
+                    generationTimeMs = 0.0,
+                    utcOffsetSeconds = 0,
+                    timezone = "",
+                    timezoneAbbreviation = "",
+                    elevation = 0.0,
+                    current = OpenMeteoCurrent("", 0, 0.0, 0, 0.0, 0),
+                    hourly = OpenMeteoHourly(emptyList(), emptyList(), emptyList(), emptyList(), emptyList()),
+                    daily = OpenMeteoDaily(emptyList(), emptyList())
+                )
+            )
+        }
+
+        override suspend fun getYesterdayForecast(
+            url: String,
+            latitude: Double,
+            longitude: Double,
+            hourly: String,
+            startDate: String,
+            endDate: String,
+            timezone: String
         ): Response<OpenMeteoResponse> {
             return Response.success(
                 OpenMeteoResponse(
