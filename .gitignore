@@ -7,3 +7,4 @@ captures
 externalNativeBuild
 .cxx
 local.properties
+weather-insights-android-key.jks
