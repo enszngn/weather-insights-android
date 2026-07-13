@@ -124,7 +124,7 @@ class WeatherRepository @Inject constructor(
 
         try {
             val response = openMeteoApiService.getYesterdayForecast(
-                url = "https://archive-api.open-meteo.com/v1/archive",
+                url = "https://api.open-meteo.com/v1/forecast",
                 latitude = lat,
                 longitude = lon,
                 startDate = dateString,
