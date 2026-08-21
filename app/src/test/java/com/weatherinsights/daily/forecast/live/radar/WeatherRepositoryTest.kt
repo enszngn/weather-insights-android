@@ -3,6 +3,8 @@ package com.weatherinsights.daily.forecast.live.radar
 import com.weatherinsights.daily.forecast.live.radar.data.model.OpenMeteoCurrent
 import com.weatherinsights.daily.forecast.live.radar.data.model.OpenMeteoDaily
 import com.weatherinsights.daily.forecast.live.radar.data.model.OpenMeteoHourly
+import com.weatherinsights.daily.forecast.live.radar.data.model.OpenMeteoHistoricalHourly
+import com.weatherinsights.daily.forecast.live.radar.data.model.OpenMeteoHistoricalResponse
 import com.weatherinsights.daily.forecast.live.radar.data.model.OpenMeteoResponse
 import com.weatherinsights.daily.forecast.live.radar.data.model.WeatherData
 import com.weatherinsights.daily.forecast.live.radar.data.model.WeatherPostPayload
@@ -91,8 +93,10 @@ class WeatherRepositoryTest {
         }
 
         var lastPostPayload: WeatherPostPayload? = null
+        var getCallCount: Int = 0
 
         override suspend fun getWeather(latitude: Double?, longitude: Double?): Response<WeatherResponse> {
+            getCallCount++
             return getResponse()
         }
 
@@ -119,6 +123,11 @@ class WeatherRepositoryTest {
                 )
             )
         }
+        var getYesterdayForecastResponse: () -> Response<OpenMeteoHistoricalResponse> = {
+            Response.success(OpenMeteoHistoricalResponse())
+        }
+        var getForecastCallCount: Int = 0
+        var getYesterdayForecastCallCount: Int = 0
 
         override suspend fun getForecast(
             latitude: Double,
@@ -129,19 +138,20 @@ class WeatherRepositoryTest {
             timezone: String,
             forecastDays: Int
         ): Response<OpenMeteoResponse> {
+            getForecastCallCount++
             return getForecastResponse()
         }
 
         override suspend fun getYesterdayForecast(
-            url: String,
             latitude: Double,
             longitude: Double,
             hourly: String,
             startDate: String,
             endDate: String,
             timezone: String
-        ): Response<OpenMeteoResponse> {
-            return getForecastResponse()
+        ): Response<OpenMeteoHistoricalResponse> {
+            getYesterdayForecastCallCount++
+            return getYesterdayForecastResponse()
         }
     }
 
@@ -160,6 +170,30 @@ class WeatherRepositoryTest {
 
         assertTrue(result.isSuccess)
         assertEquals(fakeWeather, result.getOrNull())
+    }
+
+    @Test
+    fun testFetchWeather_ForceRefresh_BypassesWorkerAndAddsFreshnessTimestamp() = runBlocking {
+        val fakeWeatherApi = FakeWeatherApiService()
+        val fakeOpenMeteoApi = FakeOpenMeteoApiService().apply {
+            getForecastResponse = { Response.success(createDummyMeteoResponse()) }
+        }
+        val localSource = FakeWeatherLocalSource()
+        val repository = WeatherRepository(fakeWeatherApi, fakeOpenMeteoApi, localSource)
+
+        val beforeFetch = System.currentTimeMillis()
+        val result = repository.fetchWeather(
+            lat = 52.52,
+            lon = 13.41,
+            locationName = "Test City",
+            forceRefresh = true
+        ).first()
+
+        assertTrue(result.isSuccess)
+        assertEquals(0, fakeWeatherApi.getCallCount)
+        assertEquals(1, fakeOpenMeteoApi.getForecastCallCount)
+        assertTrue((result.getOrNull()?.fetchedAtEpochMs ?: 0L) >= beforeFetch)
+        assertEquals(result.getOrNull(), localSource.cachedWeather)
     }
 
     @Test
@@ -256,25 +290,14 @@ class WeatherRepositoryTest {
     @Test
     fun testGetYesterdayTemperature_CacheMiss_NetworkSuccess() = runBlocking {
         val localSource = FakeWeatherLocalSource()
-        val fakeMeteo = OpenMeteoResponse(
-            latitude = 52.52,
-            longitude = 13.41,
-            generationTimeMs = 0.1,
-            utcOffsetSeconds = 0,
-            timezone = "UTC",
-            timezoneAbbreviation = "UTC",
-            elevation = 10.0,
-            hourly = OpenMeteoHourly(
+        val fakeMeteo = OpenMeteoHistoricalResponse(
+            hourly = OpenMeteoHistoricalHourly(
                 time = List(24) { "2026-07-12T$it:00" },
-                temperature2m = List(24) { 20.0 },
-                relativeHumidity2m = List(24) { 50 },
-                windSpeed10m = List(24) { 10.0 },
-                weatherCode = List(24) { 0 }
-            ),
-            daily = OpenMeteoDaily(emptyList(), emptyList())
+                temperature2m = List(24) { 20.0 }
+            )
         )
         val fakeOpenMeteoApi = FakeOpenMeteoApiService().apply {
-            getForecastResponse = {
+            getYesterdayForecastResponse = {
                 Response.success(fakeMeteo)
             }
         }
@@ -284,5 +307,32 @@ class WeatherRepositoryTest {
         assertEquals(20.0, result?.firstOrNull() ?: 0.0, 0.001)
         assertEquals("2026-07-12", localSource.yesterdayTempDate)
         assertEquals(20.0, localSource.yesterdayTempValues?.firstOrNull() ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun testGetYesterdayTemperature_InvalidCacheAndIncompleteNetworkDataReturnsNull() = runBlocking {
+        val localSource = FakeWeatherLocalSource().apply {
+            yesterdayTempDate = "2026-07-12"
+            yesterdayTempValues = listOf(99.0)
+        }
+        val fakeOpenMeteoApi = FakeOpenMeteoApiService().apply {
+            getYesterdayForecastResponse = {
+                Response.success(
+                    OpenMeteoHistoricalResponse(
+                        hourly = OpenMeteoHistoricalHourly(
+                            time = List(23) { "2026-07-12T$it:00" },
+                            temperature2m = List(23) { 20.0 }
+                        )
+                    )
+                )
+            }
+        }
+        val repository = WeatherRepository(FakeWeatherApiService(), fakeOpenMeteoApi, localSource)
+
+        val result = repository.getYesterdayTemperature(52.52, 13.41, "2026-07-12")
+
+        assertEquals(null, result)
+        assertEquals(1, fakeOpenMeteoApi.getYesterdayForecastCallCount)
+        assertEquals(listOf(99.0), localSource.yesterdayTempValues)
     }
 }

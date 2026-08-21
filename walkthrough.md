@@ -2,6 +2,38 @@
 
 Historical log of major changes. One line per change; see `task.md` for the checklist.
 
+## Refresh Staleness Investigation
+- Confirmed that `WeatherViewModel.refresh()` passes `forceRefresh = true` only to `LocationTracker`; `WeatherRepository.fetchWeather()` has no cache-bypass parameter and returns Worker cache hits immediately.
+- Confirmed that persisted weather has no freshness metadata and refresh failures are suppressed while a cached Success state is displayed.
+- Verified on August 21, 2026 that the configured production Worker was reachable and returned a same-day Ankara forecast for a coordinate cache hit; this rules out a globally frozen endpoint but not stale entries for other coordinate buckets.
+
+## Manual Refresh Freshness Fix
+- Added backward-compatible `fetchedAtEpochMs` metadata to `WeatherData`; direct Open-Meteo mappings now record the provider-fetch time and persist it through DataStore serialization.
+- Added a `forceRefresh` Repository path that bypasses Worker cache hits and fetches directly from Open-Meteo. When location permission is unavailable, the Worker resolves coordinates before the direct provider fetch.
+- Added refresh-error state to `WeatherViewModel`; failed manual refreshes retain the previously displayed weather and trigger a temporary bottom Snackbar.
+- Added Repository and ViewModel unit tests for Worker-cache bypass, freshness metadata, retained weather, Snackbar error state, and spinner completion.
+- Verified `testDebugUnitTest` successfully.
+
+## Yesterday Temperature Retrieval Fix
+- Root cause: the historical endpoint requested only `temperature_2m`, while Retrofit attempted to deserialize it as the full forecast hourly model with required humidity, wind, and weather-code fields.
+- Added dedicated `OpenMeteoHistoricalResponse` and `OpenMeteoHistoricalHourly` models containing only the historical fields returned by this request.
+- The Repository now accepts and stores historical results only when exactly 24 hourly temperatures are present. The existing DataStore schema keeps one date and one 24-value array, replacing it whenever a new yesterday date is fetched.
+- Yesterday is now calculated from the first forecast date, keeping the comparison aligned with the weather location instead of relying solely on the device date.
+- Added tests for historical cache hits, direct API fallback, incomplete cache/network rejection, and forecast-relative date selection.
+- Verified the live Open-Meteo endpoint returned 24 values from 00:00 through 23:00 for the requested Europe/Istanbul date.
+
+## Exact-Hour Temperature Comparison Fix
+- Replaced daily aggregate/first-hour comparison values with exact same-hour lookup for both selected and previous forecast days. For example, a future day at 14:00 is now compared with the previous day at 14:00.
+- Extracted the pure comparison calculation into `TemperatureComparisonUtil.kt` and added tests proving that midnight values cannot leak into an afternoon comparison.
+- Fixed a state race where background reverse geocoding reconstructed `WeatherUiState.Success` and reset the historical loading flag after retrieval had completed.
+- Added an explicit historical loading flag. Failed historical requests now leave loading state and display "Temperature comparison unavailable" instead of showing "Retrieving yesterday's weather..." indefinitely.
+- Added a 15-second timeout around the historical request.
+- Simulator runtime logs showed system-wide DNS failure (`UnknownHostException` for Open-Meteo and Google connectivity checks); the app now exits loading cleanly during that external failure.
+
+## Version 1.1.2
+- Updated `versionName` to `1.1.2` and `versionCode` to `4` for the next release.
+- Generated and verified the release bundle at `app/build/outputs/bundle/release/app-release.aab`; the project has no release signing configuration, so the bundle must be signed through the existing release/upload-key workflow before publishing.
+
 ## Phase 0: Setup
 - Created `agents.md`, `project.md`, `README.md`, `task.md`, `walkthrough.md`.
 - Package structure under `app/src/main/kotlin/com/weatherinsights/`:

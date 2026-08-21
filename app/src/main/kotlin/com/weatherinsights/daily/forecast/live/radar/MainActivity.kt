@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
                 val uiState by viewModel.uiState.collectAsState()
                 val canRefresh by viewModel.canRefresh.collectAsState()
                 val isRefreshing by viewModel.isRefreshing.collectAsState()
+                val refreshError by viewModel.refreshError.collectAsState()
                 val notificationPrefs by viewModel.notificationPreferences.collectAsState()
                 val isWelcomeCompleted by viewModel.isWelcomeCompleted.collectAsState()
 
@@ -157,6 +158,8 @@ class MainActivity : ComponentActivity() {
                                 },
                                 canRefresh = canRefresh,
                                 isRefreshing = isRefreshing,
+                                refreshError = refreshError,
+                                onRefreshErrorShown = viewModel::consumeRefreshError,
                                 isLocationPermissionGranted = isLocationGrantedVal,
                                 isAlarmPermissionGranted = isAlarmGrantedVal,
                                 onRequestAlarmPermission = {

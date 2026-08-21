@@ -44,3 +44,15 @@ data class OpenMeteoDaily(
     val sunrise: List<String>? = null,
     val sunset: List<String>? = null
 )
+
+/** Minimal response used by the single-day historical temperature request. */
+@Serializable
+data class OpenMeteoHistoricalResponse(
+    val hourly: OpenMeteoHistoricalHourly? = null
+)
+
+@Serializable
+data class OpenMeteoHistoricalHourly(
+    val time: List<String> = emptyList(),
+    @SerialName("temperature_2m") val temperature2m: List<Double> = emptyList()
+)

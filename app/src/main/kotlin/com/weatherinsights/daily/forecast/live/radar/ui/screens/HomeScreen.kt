@@ -4,12 +4,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import com.weatherinsights.daily.forecast.live.radar.data.model.NotificationPreferences
 import com.weatherinsights.daily.forecast.live.radar.ui.components.ErrorView
 import com.weatherinsights.daily.forecast.live.radar.ui.components.LoadingView
@@ -40,12 +44,22 @@ fun HomeScreen(
     onRefresh: () -> Unit,
     canRefresh: Boolean,
     isRefreshing: Boolean,
+    refreshError: String?,
+    onRefreshErrorShown: () -> Unit,
     isLocationPermissionGranted: Boolean,
     isAlarmPermissionGranted: Boolean,
     onRequestAlarmPermission: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isSettingsOpen by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(refreshError) {
+        if (refreshError != null) {
+            snackbarHostState.showSnackbar(refreshError)
+            onRefreshErrorShown()
+        }
+    }
 
     Box(
         modifier = modifier
@@ -92,6 +106,7 @@ fun HomeScreen(
                     is WeatherUiState.Success -> WeatherContent(
                         weatherData = uiState.weatherData,
                         yesterdayHourlyTemps = uiState.yesterdayHourlyTemps,
+                        isYesterdayTemperatureLoading = uiState.isYesterdayTemperatureLoading,
                         onRefresh = onRefresh,
                         canRefresh = canRefresh,
                         isRefreshing = isRefreshing,
@@ -106,5 +121,10 @@ fun HomeScreen(
                 }
             }
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }

@@ -30,6 +30,9 @@ class WeatherViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    private val _refreshError = MutableStateFlow<String?>(null)
+    val refreshError: StateFlow<String?> = _refreshError.asStateFlow()
+
     private val _notificationPreferences = MutableStateFlow(NotificationPreferences())
     val notificationPreferences: StateFlow<NotificationPreferences> = _notificationPreferences.asStateFlow()
 
@@ -124,72 +127,84 @@ class WeatherViewModel @Inject constructor(
         val cached = repository.getCachedWeather()
         if (cached != null && _uiState.value is WeatherUiState.Loading) {
             _uiState.value = WeatherUiState.Success(cached)
-            loadYesterdayTemperature(cached.lat, cached.lon)
+            loadYesterdayTemperature(cached)
         }
         loadWeather()
     }
 
     fun loadWeather(forceRefresh: Boolean = false) {
         viewModelScope.launch {
-            setNonSuccessState(WeatherUiState.Loading)
+            if (forceRefresh) _refreshError.value = null
 
-            val hasPermission = locationTracker.hasLocationPermission()
-            val location = if (hasPermission) {
-                locationTracker.getCurrentLocation(forceRefresh = forceRefresh)
-            } else {
-                null
-            }
+            try {
+                setNonSuccessState(WeatherUiState.Loading)
 
-            val lat: Double? = location?.latitude
-            val lon: Double? = location?.longitude
+                val hasPermission = locationTracker.hasLocationPermission()
+                val location = if (hasPermission) {
+                    locationTracker.getCurrentLocation(forceRefresh = forceRefresh)
+                } else {
+                    null
+                }
 
-            // Geocode before fetching — Android's local Geocoder is fast (~50–150 ms) and
-            // the result must be available when the Repository fires the POST to the Worker.
-            val cityName = if (lat != null && lon != null) {
-                locationTracker.getCityName(lat, lon)
-            } else {
-                null
-            }
+                val lat: Double? = location?.latitude
+                val lon: Double? = location?.longitude
 
-            repository.fetchWeather(lat, lon, cityName)
-                .collect { result ->
-                    result.fold(
-                        onSuccess = { data ->
-                            val finalData = if (cityName != null) data.copy(locationName = cityName) else data
-                            _uiState.value = WeatherUiState.Success(finalData)
-                            loadYesterdayTemperature(finalData.lat, finalData.lon)
+                // Geocode before fetching — Android's local Geocoder is fast (~50–150 ms) and
+                // the result must be available when the Repository fires the POST to the Worker.
+                val cityName = if (lat != null && lon != null) {
+                    locationTracker.getCityName(lat, lon)
+                } else {
+                    null
+                }
 
-                            // Background fallback: if the city name is still generic ("Current Location" or blank)
-                            // but we have valid coordinates, try reverse-geocoding them on the client.
-                            if (cityName == null && (finalData.locationName == "Current Location" || finalData.locationName.isBlank())) {
-                                viewModelScope.launch {
-                                    val resolvedName = locationTracker.getCityName(finalData.lat, finalData.lon)
-                                    if (resolvedName != null && resolvedName.isNotBlank() && resolvedName != "Current Location") {
-                                        val updatedData = finalData.copy(locationName = resolvedName)
-                                        localSource.saveWeatherToCache(updatedData)
-                                        
-                                        // Update UI if the state is still Success and for the same coordinates
-                                        val currentState = _uiState.value
-                                        if (currentState is WeatherUiState.Success &&
-                                            currentState.weatherData.lat == finalData.lat &&
-                                            currentState.weatherData.lon == finalData.lon
-                                        ) {
-                                            _uiState.value = WeatherUiState.Success(updatedData, currentState.yesterdayHourlyTemps)
+                repository.fetchWeather(lat, lon, cityName, forceRefresh)
+                    .collect { result ->
+                        result.fold(
+                            onSuccess = { data ->
+                                val finalData = if (cityName != null) data.copy(locationName = cityName) else data
+                                _uiState.value = WeatherUiState.Success(finalData)
+                                loadYesterdayTemperature(finalData)
+
+                                // Background fallback: if the city name is still generic ("Current Location" or blank)
+                                // but we have valid coordinates, try reverse-geocoding them on the client.
+                                if (cityName == null && (finalData.locationName == "Current Location" || finalData.locationName.isBlank())) {
+                                    viewModelScope.launch {
+                                        val resolvedName = locationTracker.getCityName(finalData.lat, finalData.lon)
+                                        if (resolvedName != null && resolvedName.isNotBlank() && resolvedName != "Current Location") {
+                                            val updatedData = finalData.copy(locationName = resolvedName)
+                                            localSource.saveWeatherToCache(updatedData)
+
+                                            // Update UI if the state is still Success and for the same coordinates
+                                            val currentState = _uiState.value
+                                            if (currentState is WeatherUiState.Success &&
+                                                currentState.weatherData.lat == finalData.lat &&
+                                                currentState.weatherData.lon == finalData.lon
+                                            ) {
+                                                _uiState.value = currentState.copy(weatherData = updatedData)
+                                            }
                                         }
                                     }
                                 }
+                            },
+                            onFailure = { error ->
+                                if (forceRefresh && _uiState.value is WeatherUiState.Success) {
+                                    _refreshError.value = "Couldn't refresh weather. Showing saved data."
+                                } else {
+                                    setNonSuccessState(
+                                        WeatherUiState.Error(error.message ?: "An unknown error occurred")
+                                    )
+                                }
                             }
-                        },
-                        onFailure = { error ->
-                            setNonSuccessState(
-                                WeatherUiState.Error(error.message ?: "An unknown error occurred")
-                            )
-                        }
-                    )
-                }
-
-            if (forceRefresh) _isRefreshing.value = false
+                        )
+                    }
+            } finally {
+                if (forceRefresh) _isRefreshing.value = false
+            }
         }
+    }
+
+    fun consumeRefreshError() {
+        _refreshError.value = null
     }
 
     /**
@@ -220,17 +235,27 @@ class WeatherViewModel @Inject constructor(
         loadWeather(forceRefresh = true)
     }
 
-    private fun loadYesterdayTemperature(lat: Double, lon: Double) {
+    private fun loadYesterdayTemperature(weatherData: WeatherData) {
         viewModelScope.launch {
-            val yesterday = java.time.LocalDate.now().minusDays(1)
+            val currentForecastDate = weatherData.forecast.firstOrNull()?.date
+                ?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+                ?: java.time.LocalDate.now()
+            val yesterday = currentForecastDate.minusDays(1)
             val dateString = yesterday.toString()
-            val temps = repository.getYesterdayTemperature(lat, lon, dateString)
+            val temps = repository.getYesterdayTemperature(
+                weatherData.lat,
+                weatherData.lon,
+                dateString
+            )
             val currentState = _uiState.value
             if (currentState is WeatherUiState.Success &&
-                currentState.weatherData.lat == lat &&
-                currentState.weatherData.lon == lon
+                currentState.weatherData.lat == weatherData.lat &&
+                currentState.weatherData.lon == weatherData.lon
             ) {
-                _uiState.value = currentState.copy(yesterdayHourlyTemps = temps)
+                _uiState.value = currentState.copy(
+                    yesterdayHourlyTemps = temps,
+                    isYesterdayTemperatureLoading = false
+                )
             }
         }
     }

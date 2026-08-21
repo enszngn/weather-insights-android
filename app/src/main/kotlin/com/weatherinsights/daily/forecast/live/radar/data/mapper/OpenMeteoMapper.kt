@@ -14,7 +14,10 @@ import com.weatherinsights.daily.forecast.live.radar.data.model.WeatherData
  * For day 0, current conditions are taken from the `current` block.
  * For subsequent days, daily aggregates are computed from the hourly data.
  */
-fun OpenMeteoResponse.toWeatherData(locationName: String = "Current Location"): WeatherData {
+fun OpenMeteoResponse.toWeatherData(
+    locationName: String = "Current Location",
+    fetchedAtEpochMs: Long = System.currentTimeMillis()
+): WeatherData {
     val dailyTime = daily?.time ?: emptyList()
     val hourlyTime = hourly?.time ?: emptyList()
     val forecastDays = dailyTime.mapIndexed { i, dateStr ->
@@ -66,6 +69,7 @@ fun OpenMeteoResponse.toWeatherData(locationName: String = "Current Location"): 
         locationName = locationName,
         lat = latitude,
         lon = longitude,
-        forecast = forecastDays
+        forecast = forecastDays,
+        fetchedAtEpochMs = fetchedAtEpochMs
     )
 }

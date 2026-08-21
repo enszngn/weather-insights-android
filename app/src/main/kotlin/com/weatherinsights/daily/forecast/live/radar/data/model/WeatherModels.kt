@@ -13,7 +13,9 @@ data class WeatherData(
     val locationName: String,
     val lat: Double,
     val lon: Double,
-    val forecast: List<ForecastDay>
+    val forecast: List<ForecastDay>,
+    /** Epoch time when this data was fetched directly from the weather provider. */
+    val fetchedAtEpochMs: Long = 0L
 )
 
 @Serializable
