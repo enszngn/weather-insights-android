@@ -61,6 +61,7 @@ import com.weatherinsights.daily.forecast.live.radar.data.model.TimelineEntry
 import com.weatherinsights.daily.forecast.live.radar.data.model.WeatherData
 import com.weatherinsights.daily.forecast.live.radar.ui.theme.TextPrimary
 import com.weatherinsights.daily.forecast.live.radar.ui.util.WeatherMapper
+import com.weatherinsights.daily.forecast.live.radar.ui.util.buildTemperatureComparison
 import com.weatherinsights.daily.forecast.live.radar.ui.util.getDynamicBackgroundColorForDay
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -75,6 +76,7 @@ import kotlin.math.roundToInt
 internal fun WeatherContent(
     weatherData: WeatherData,
     yesterdayHourlyTemps: List<Double>?,
+    isYesterdayTemperatureLoading: Boolean,
     onRefresh: () -> Unit,
     canRefresh: Boolean,
     isRefreshing: Boolean,
@@ -94,6 +96,12 @@ internal fun WeatherContent(
 
             val currentHour = java.time.LocalTime.now().hour
             val finalTimeline = buildTimelineForDay(weatherData, pageIndex, currentHour)
+            val temperatureComparison = buildTemperatureComparison(
+                forecast = forecast,
+                selectedDayIndex = pageIndex,
+                hour = currentHour,
+                yesterdayHourlyTemperatures = yesterdayHourlyTemps
+            )
 
             Box(
                 modifier = Modifier
@@ -254,9 +262,11 @@ internal fun WeatherContent(
                         }
 
                         // 2. Yesterday comparison window
-                        YesterdayComparisonPanel(
-                            currentTemp = selectedDay.temp,
-                            yesterdayTemp = if (pageIndex == 0) yesterdayHourlyTemps?.getOrNull(currentHour) else forecast[pageIndex - 1].temp
+                        TemperatureComparisonPanel(
+                            currentTemp = temperatureComparison.selectedDayTemperature,
+                            previousDayTemp = temperatureComparison.previousDayTemperature,
+                            isLoading = pageIndex == 0 && isYesterdayTemperatureLoading,
+                            referenceLabel = if (pageIndex == 0) "yesterday" else "the previous day"
                         )
 
                         // 3. Metric panels (bottom bubble)
@@ -566,9 +576,11 @@ private fun RowScope.MetricPanel(
 }
 
 @Composable
-private fun YesterdayComparisonPanel(
-    currentTemp: Double,
-    yesterdayTemp: Double?
+private fun TemperatureComparisonPanel(
+    currentTemp: Double?,
+    previousDayTemp: Double?,
+    isLoading: Boolean,
+    referenceLabel: String
 ) {
     GlassyPanel(
         modifier = Modifier
@@ -582,14 +594,14 @@ private fun YesterdayComparisonPanel(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            if (yesterdayTemp != null) {
-                val tempDiff = currentTemp - yesterdayTemp
+            if (currentTemp != null && previousDayTemp != null) {
+                val tempDiff = currentTemp - previousDayTemp
                 val diffRounded = tempDiff.roundToInt()
 
                 val text = when {
-                    diffRounded > 0 -> "$diffRounded°C warmer than yesterday"
-                    diffRounded < 0 -> "${kotlin.math.abs(diffRounded)}°C cooler than yesterday"
-                    else -> "Same temperature as yesterday"
+                    diffRounded > 0 -> "$diffRounded°C warmer than $referenceLabel"
+                    diffRounded < 0 -> "${kotlin.math.abs(diffRounded)}°C cooler than $referenceLabel"
+                    else -> "Same temperature as $referenceLabel"
                 }
 
                 Text(
@@ -629,7 +641,7 @@ private fun YesterdayComparisonPanel(
                         color = badgeTextColor
                     )
                 }
-            } else {
+            } else if (isLoading) {
                 Text(
                     text = "Retrieving yesterday's weather...",
                     fontSize = 14.sp,
@@ -643,6 +655,13 @@ private fun YesterdayComparisonPanel(
                     contentDescription = "Loading",
                     tint = Color.White.copy(alpha = 0.4f),
                     modifier = Modifier.size(20.dp)
+                )
+            } else {
+                Text(
+                    text = "Temperature comparison unavailable",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color.White.copy(alpha = 0.6f)
                 )
             }
         }

@@ -4,7 +4,9 @@ import com.weatherinsights.daily.forecast.live.radar.data.location.LocationData
 import com.weatherinsights.daily.forecast.live.radar.data.location.LocationTracker
 import com.weatherinsights.daily.forecast.live.radar.data.model.OpenMeteoCurrent
 import com.weatherinsights.daily.forecast.live.radar.data.model.OpenMeteoDaily
+import com.weatherinsights.daily.forecast.live.radar.data.model.ForecastDay
 import com.weatherinsights.daily.forecast.live.radar.data.model.OpenMeteoHourly
+import com.weatherinsights.daily.forecast.live.radar.data.model.OpenMeteoHistoricalResponse
 import com.weatherinsights.daily.forecast.live.radar.data.model.OpenMeteoResponse
 import com.weatherinsights.daily.forecast.live.radar.data.model.NotificationPreferences
 import com.weatherinsights.daily.forecast.live.radar.data.model.WeatherData
@@ -115,16 +117,8 @@ class WeatherViewModelTest {
     }
 
     class FakeOpenMeteoApiService : OpenMeteoApiService {
-        override suspend fun getForecast(
-            latitude: Double,
-            longitude: Double,
-            current: String,
-            hourly: String,
-            daily: String,
-            timezone: String,
-            forecastDays: Int
-        ): Response<OpenMeteoResponse> {
-            return Response.success(
+        var getForecastResponse: () -> Response<OpenMeteoResponse> = {
+            Response.success(
                 OpenMeteoResponse(
                     latitude = 0.0,
                     longitude = 0.0,
@@ -139,30 +133,30 @@ class WeatherViewModelTest {
                 )
             )
         }
+        var yesterdayStartDate: String? = null
+
+        override suspend fun getForecast(
+            latitude: Double,
+            longitude: Double,
+            current: String,
+            hourly: String,
+            daily: String,
+            timezone: String,
+            forecastDays: Int
+        ): Response<OpenMeteoResponse> {
+            return getForecastResponse()
+        }
 
         override suspend fun getYesterdayForecast(
-            url: String,
             latitude: Double,
             longitude: Double,
             hourly: String,
             startDate: String,
             endDate: String,
             timezone: String
-        ): Response<OpenMeteoResponse> {
-            return Response.success(
-                OpenMeteoResponse(
-                    latitude = 0.0,
-                    longitude = 0.0,
-                    generationTimeMs = 0.0,
-                    utcOffsetSeconds = 0,
-                    timezone = "",
-                    timezoneAbbreviation = "",
-                    elevation = 0.0,
-                    current = OpenMeteoCurrent("", 0, 0.0, 0, 0.0, 0),
-                    hourly = OpenMeteoHourly(emptyList(), emptyList(), emptyList(), emptyList(), emptyList()),
-                    daily = OpenMeteoDaily(emptyList(), emptyList())
-                )
-            )
+        ): Response<OpenMeteoHistoricalResponse> {
+            yesterdayStartDate = startDate
+            return Response.success(OpenMeteoHistoricalResponse())
         }
     }
 
@@ -320,6 +314,75 @@ class WeatherViewModelTest {
         // Persisted state check
         val refreshState = fakeLocalSource.getRefreshState()
         assertEquals(1, refreshState?.first)
+    }
+
+    @Test
+    fun testViewModelRefresh_FailureKeepsWeatherAndExposesSnackbarMessage() = runTest {
+        val cachedWeather = WeatherData("Ankara", 39.93, 32.85, emptyList())
+        val fakeLocalSource = FakeWeatherLocalSource().apply {
+            this.cachedWeather = cachedWeather
+        }
+        val fakeLocationTracker = FakeLocationTracker().apply {
+            locationResult = LocationData(39.93, 32.85)
+        }
+        val fakeOpenMeteoApi = FakeOpenMeteoApiService().apply {
+            getForecastResponse = {
+                Response.error(500, "Server Error".toResponseBody())
+            }
+        }
+        val repository = WeatherRepository(
+            FakeWeatherApiService(),
+            fakeOpenMeteoApi,
+            fakeLocalSource
+        )
+        val viewModel = WeatherViewModel(repository, fakeLocationTracker, fakeLocalSource)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.refresh()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(cachedWeather, (viewModel.uiState.value as WeatherUiState.Success).weatherData)
+        assertEquals(
+            "Couldn't refresh weather. Showing saved data.",
+            viewModel.refreshError.value
+        )
+        assertTrue(!viewModel.isRefreshing.value)
+
+        viewModel.consumeRefreshError()
+        assertEquals(null, viewModel.refreshError.value)
+    }
+
+    @Test
+    fun testYesterdayTemperature_UsesFirstForecastDayInsteadOfDeviceDate() = runTest {
+        val weather = WeatherData(
+            locationName = "Ankara",
+            lat = 39.93,
+            lon = 32.85,
+            forecast = listOf(
+                ForecastDay(
+                    date = "2026-08-21",
+                    temp = 30.0,
+                    humidity = 20,
+                    windSpeed = 5.0,
+                    uvIndex = 7.0,
+                    weatherCode = 0,
+                    hourly = emptyList()
+                )
+            )
+        )
+        val fakeWeatherApi = FakeWeatherApiService().apply {
+            getResponse = {
+                Response.success(WeatherResponse(success = true, weather = weather))
+            }
+        }
+        val fakeOpenMeteoApi = FakeOpenMeteoApiService()
+        val localSource = FakeWeatherLocalSource()
+        val repository = WeatherRepository(fakeWeatherApi, fakeOpenMeteoApi, localSource)
+
+        WeatherViewModel(repository, FakeLocationTracker(), localSource)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("2026-08-20", fakeOpenMeteoApi.yesterdayStartDate)
     }
 
     @Test
@@ -521,6 +584,7 @@ class WeatherViewModelTest {
         assertTrue(state is WeatherUiState.Success)
         val successState = state as WeatherUiState.Success
         assertEquals("Ankara", successState.weatherData.locationName)
+        assertTrue(!successState.isYesterdayTemperatureLoading)
         val cached = fakeLocalSource.getCachedWeather()
         assertEquals("Ankara", cached?.locationName)
     }

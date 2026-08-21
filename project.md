@@ -119,6 +119,10 @@ Tests: `app/src/test/java/com/weatherinsights/` (WeatherRepositoryTest, WeatherV
 - [x] Feature: Retrieve yesterday's 24 hourly weather conditions from Open-Meteo's standard Forecast API (`https://api.open-meteo.com/v1/forecast`) and implement hour-by-hour temperature comparison.
 - [x] Bugfix: Validate that cached yesterday weather list size is exactly 24 to handle single-value upgrade scenarios, and add JVM-safe console logging to yesterday's weather requests.
 - [x] UI: Make hourly weather timeline panel height 30% taller (increased from 130.dp to 170.dp).
+- [x] Bugfix: Make manual refresh bypass the Worker cache, persist provider-fetch timestamps, and show refresh failures in a temporary Snackbar while retaining saved weather.
+- [x] Bugfix: Fetch and cache exactly one 24-hour yesterday temperature array using a dedicated Open-Meteo historical response model.
+- [x] Bugfix: Compare selected and previous forecast days at the same local hour, preserve completed historical state during reverse geocoding, and stop historical loading after request failure.
+- [x] Release: Update app version to 1.1.2 and versionCode to 4.
 
 ## Not Started (from original roadmap, never completed)
 
